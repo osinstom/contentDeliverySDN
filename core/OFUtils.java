@@ -1,0 +1,275 @@
+package icn.core;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+
+import net.floodlightcontroller.core.FloodlightContext;
+import net.floodlightcontroller.core.IOFSwitch;
+import net.floodlightcontroller.core.IOFSwitchListener;
+import net.floodlightcontroller.core.PortChangeType;
+import net.floodlightcontroller.packet.ARP;
+import net.floodlightcontroller.packet.Data;
+import net.floodlightcontroller.packet.Ethernet;
+import net.floodlightcontroller.packet.IPv4;
+import net.floodlightcontroller.packet.TCP;
+import net.floodlightcontroller.util.FlowModUtils;
+
+import org.projectfloodlight.openflow.protocol.OFFactories;
+import org.projectfloodlight.openflow.protocol.OFFactory;
+import org.projectfloodlight.openflow.protocol.OFFlowAdd;
+import org.projectfloodlight.openflow.protocol.OFMatchV1;
+import org.projectfloodlight.openflow.protocol.OFMessage;
+import org.projectfloodlight.openflow.protocol.OFPacketIn;
+import org.projectfloodlight.openflow.protocol.OFPacketOut;
+import org.projectfloodlight.openflow.protocol.OFPortDesc;
+import org.projectfloodlight.openflow.protocol.OFVersion;
+import org.projectfloodlight.openflow.protocol.action.OFAction;
+import org.projectfloodlight.openflow.protocol.match.MatchField;
+import org.projectfloodlight.openflow.types.ArpOpcode;
+import org.projectfloodlight.openflow.types.DatapathId;
+import org.projectfloodlight.openflow.types.EthType;
+import org.projectfloodlight.openflow.types.IPv4Address;
+import org.projectfloodlight.openflow.types.IpProtocol;
+import org.projectfloodlight.openflow.types.OFBufferId;
+import org.projectfloodlight.openflow.types.OFPort;
+import org.projectfloodlight.openflow.types.TransportPort;
+import org.projectfloodlight.openflow.types.U64;
+
+import com.sun.media.jfxmedia.logging.Logger;
+
+public class OFUtils {
+
+	public static void pushARP(IOFSwitch sw, Ethernet eth, OFMessage msg) {
+
+		OFPacketIn pi = (OFPacketIn) msg;
+
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
+				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+		IcnModule.logger.info("SRCMAC=" + eth.getSourceMACAddress());
+
+		Ethernet l2 = new Ethernet();
+		l2.setSourceMACAddress(IcnModule.VMAC);
+		l2.setDestinationMACAddress(eth.getSourceMACAddress());
+		l2.setEtherType(EthType.ARP);
+
+		ARP l2_5 = new ARP();
+		l2_5.setSenderHardwareAddress(IcnModule.VMAC);
+		l2_5.setTargetHardwareAddress(((ARP) eth.getPayload())
+				.getSenderHardwareAddress());
+		l2_5.setSenderProtocolAddress(((ARP) eth.getPayload())
+				.getTargetProtocolAddress());
+		l2_5.setTargetProtocolAddress(((ARP) eth.getPayload())
+				.getSenderProtocolAddress());
+		l2_5.setProtocolType(((ARP) eth.getPayload()).getProtocolType());
+		l2_5.setHardwareAddressLength(((ARP) eth.getPayload())
+				.getHardwareAddressLength());
+		l2_5.setProtocolAddressLength(((ARP) eth.getPayload())
+				.getProtocolAddressLength());
+		l2_5.setHardwareType(((ARP) eth.getPayload()).getHardwareType());
+		l2_5.setOpCode(ArpOpcode.REPLY);
+
+		l2.setPayload(l2_5);
+		IcnModule.logger.info("" + l2_5.getTargetHardwareAddress());
+		byte[] serializedData = l2.serialize();
+
+		OFPacketOut po = sw
+				.getOFFactory()
+				.buildPacketOut()
+				/* mySwitch is some IOFSwitch object */
+				.setData(serializedData)
+				.setActions(
+						Collections.singletonList((OFAction) sw.getOFFactory()
+								.actions().output(inPort, 0xffFFffFF)))
+				.setInPort(OFPort.CONTROLLER).build();
+
+		sw.write(po);
+
+		IcnModule.logger.info("ARP Response packet sent");
+
+	}
+
+	public static void insertHTTPDpiFlow(IOFSwitch sw) {
+
+		IcnModule.logger.info("Inserting FLOW MOD");
+		OFFactory ofFactory = sw.getOFFactory();
+
+		OFAction action = ofFactory.actions().output(OFPort.CONTROLLER,
+				0xffFFffFF);
+		List<OFAction> actions = new ArrayList<OFAction>();
+		actions.add(action);
+
+		OFFlowAdd httpGetFlow = ofFactory
+				.buildFlowAdd()
+				.setActions(actions)
+				.setBufferId(OFBufferId.NO_BUFFER)
+				.setMatch(
+						ofFactory
+								.buildMatch()
+								.setExact(MatchField.IN_PORT, OFPort.ANY)
+								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+								.setExact(MatchField.ETH_DST, IcnModule.VMAC)
+								.setExact(MatchField.IPV4_DST, IcnModule.VIP)
+								.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
+								.setExact(MatchField.TCP_DST,
+										TransportPort.of(80)).build())
+				.setCookie(U64.of(1L << 58))
+				.setPriority(FlowModUtils.PRIORITY_HIGH).build();
+
+		sw.write(httpGetFlow);
+
+		IcnModule.logger.info("FLOW MOD added to switch " + sw.getId());
+	}
+
+	public static void sendSynAck(IOFSwitch sw, OFMessage msg, IPv4 ipv4,
+			Ethernet eth, TCP tcp) {
+
+		OFPacketIn pi = (OFPacketIn) msg;
+
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
+				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+
+		Ethernet l2 = new Ethernet();
+		l2.setSourceMACAddress(IcnModule.VMAC);
+		l2.setDestinationMACAddress(eth.getSourceMACAddress());
+		l2.setEtherType(EthType.IPv4);
+
+		IPv4 l3 = new IPv4();
+		l3.setDestinationAddress(ipv4.getSourceAddress());
+		l3.setSourceAddress(ipv4.getDestinationAddress());
+		l3.setDiffServ(ipv4.getDiffServ());
+		l3.setChecksum(ipv4.getChecksum());
+		l3.setFlags(ipv4.getFlags());
+		l3.setTtl((byte) 32);
+		l3.setIdentification(ipv4.getIdentification());
+		l3.resetChecksum();
+
+		TCP l4 = (TCP) tcp.clone();
+
+		l4.setDestinationPort(tcp.getSourcePort());
+		l4.setSourcePort(tcp.getDestinationPort());
+		short synAck = (short) 0x012;
+		l4.setFlags(synAck);
+		l4.setAcknowledge(tcp.getSequence() + 1);
+		l4.setWindowSize(tcp.getWindowSize());
+		l4.setOptions(getSYNACKOptions(tcp.getOptions()));
+		l4.resetChecksum();
+		l3.setPayload(l4);
+		l2.setPayload(l3);
+
+		byte[] serializedData = l2.serialize();
+
+		OFPacketOut po = sw
+				.getOFFactory()
+				.buildPacketOut()
+				/* mySwitch is some IOFSwitch object */
+				.setData(serializedData)
+				.setActions(
+						Collections.singletonList((OFAction) sw.getOFFactory()
+								.actions().output(inPort, 0xffFFffFF)))
+				.setInPort(OFPort.CONTROLLER).build();
+
+		sw.write(po);
+
+	}
+
+	private static byte[] getSYNACKOptions(byte[] options) {
+		ByteBuffer bb = ByteBuffer.wrap(options);
+		byte[] synDataOptions = new byte[options.length];
+		ByteBuffer synbb = ByteBuffer.wrap(synDataOptions);
+
+		while (bb.hasRemaining()) {
+			byte kind = bb.get();
+			synbb.put(kind);
+
+			if (kind != 1) {
+				byte length = bb.get();
+				synbb.put(length);
+
+				if (kind != 8) {
+					for (int i = 0; i < length - 2; i++) {
+						synbb.put(bb.get());
+					}
+				} else {
+					int tsVal = bb.getInt();
+					int tsecr = bb.getInt();
+
+					synbb.putInt(Math.abs((int) System.currentTimeMillis()));
+					synbb.putInt(tsVal);
+				}
+			}
+		}
+		return synDataOptions;
+	}
+
+	public static void redirectHttpRequest(IOFSwitch sw, OFMessage msg, IPv4 ipv4,
+			Ethernet eth, TCP tcp, String destinationHost) {
+		
+		OFPacketIn pi = (OFPacketIn) msg;
+
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
+				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+		
+		Ethernet l2 = (Ethernet) eth.clone();
+		l2.setDestinationMACAddress(eth.getSourceMACAddress());
+		l2.setSourceMACAddress(eth.getDestinationMACAddress());
+		
+		IPv4 l3 = new IPv4();
+		l3.setDestinationAddress(ipv4.getSourceAddress());
+		l3.setSourceAddress(ipv4.getDestinationAddress());
+		l3.setDiffServ(ipv4.getDiffServ());
+		l3.setChecksum(ipv4.getChecksum());
+		l3.setFlags(ipv4.getFlags());
+		l3.setTtl((byte) 32);
+		l3.setIdentification(ipv4.getIdentification());
+		l3.resetChecksum();
+
+		TCP l4 = (TCP) tcp.clone();
+
+		l4.setDestinationPort(tcp.getSourcePort());
+		l4.setSourcePort(tcp.getDestinationPort());
+		short synAck = (short) 0x018;
+		l4.setFlags(synAck);
+		l4.setAcknowledge(tcp.getSequence() + 1);
+		l4.setWindowSize(tcp.getWindowSize());
+		l4.setOptions(getSYNACKOptions(tcp.getOptions()));
+		l4.resetChecksum();
+		
+		StringBuilder builder = new StringBuilder();
+		builder.append("HTTP/1.1 301 Moved Permanently\r\n");
+		builder.append("Location: http://10.0.0.2\r\n");
+		builder.append("Connection: Keep-Alive\r\n");
+		builder.append("\r\n");
+		String httpHeader = builder.toString();
+		Data l7 = new Data();
+		l7.setData(httpHeader.getBytes());
+
+		l4.setPayload(null);
+		l4.setPayload(l7);
+		l3.setPayload(l4);
+		l2.setPayload(l3);
+		
+		byte[] serializedData = l2.serialize();
+		
+		OFPacketOut po = sw
+				.getOFFactory()
+				.buildPacketOut()
+				.setData(serializedData)
+				.setActions(
+						Collections.singletonList((OFAction) sw.getOFFactory()
+								.actions().output(inPort, 0xffFFffFF)))
+				.setInPort(OFPort.CONTROLLER).build();
+
+		sw.write(po);
+		
+	}
+
+	public static void flood(IOFSwitch sw, Ethernet eth, OFMessage msg) {
+		// TODO Auto-generated method stub
+		
+	}
+
+}

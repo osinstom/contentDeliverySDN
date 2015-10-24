@@ -115,8 +115,6 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 			if (arp.getTargetProtocolAddress().equals(VIP))
 				OFUtils.pushARP(sw, eth, msg);
-			else 
-				OFUtils.flood(sw, eth, msg);
 
 			// logger.info("" + arp.getSenderHardwareAddress());
 		}
@@ -168,7 +166,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 		@Override
 		public void switchAdded(DatapathId switchId) {
-			OFUtils.insertHTTPDpiFlow(switchService.getSwitch(switchId));
+			//OFUtils.insertHTTPDpiFlow(switchService.getSwitch(switchId));
 		}
 
 		@Override

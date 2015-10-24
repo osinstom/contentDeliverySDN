@@ -43,6 +43,26 @@ import com.sun.media.jfxmedia.logging.Logger;
 
 public class OFUtils {
 
+	public static final short ACK_FLAG = (short) 0x010;
+
+	public static final short FIN_ACK_FLAG = (short) 0x011;
+
+	public static final short FIN_PSH_ACK_FLAG = (short) 0x019;
+
+	public static final short PSH_ACK_FLAG = (short) 0x018;
+
+	public static final short RST_FLAG = (short) 0x004;
+
+	public static final short SYN_FLAG = (short) 0x002;
+
+	public static final short SYN_ACK_FLAG = (short) 0x012;
+
+	private static byte[] ackOptionsHeader = new byte[] { (byte) 0x01, (byte) 0x01,
+			(byte) 0x08, (byte) 0x0a,
+	// (byte) 0x00, (byte) 0x64, (byte) 0xf2, (byte) 0xae,
+	// (byte) 0x00, (byte) 0x5a, (byte) 0x2c, (byte) 0x6e
+	};
+
 	public static void pushARP(IOFSwitch sw, Ethernet eth, OFMessage msg) {
 
 		OFPacketIn pi = (OFPacketIn) msg;
@@ -157,6 +177,7 @@ public class OFUtils {
 		l4.setWindowSize(tcp.getWindowSize());
 		l4.setOptions(getSYNACKOptions(tcp.getOptions()));
 		l4.resetChecksum();
+
 		l3.setPayload(l4);
 		l2.setPayload(l3);
 
@@ -205,18 +226,13 @@ public class OFUtils {
 		return synDataOptions;
 	}
 
-	public static void redirectHttpRequest(IOFSwitch sw, OFMessage msg, IPv4 ipv4,
-			Ethernet eth, TCP tcp, String destinationHost) {
-		
-		OFPacketIn pi = (OFPacketIn) msg;
+	public static byte[] getTCPResponse(Ethernet eth, IPv4 ipv4, TCP tcp, short flag,
+			Data l7) {
 
-		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
-				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
-		
 		Ethernet l2 = (Ethernet) eth.clone();
 		l2.setDestinationMACAddress(eth.getSourceMACAddress());
 		l2.setSourceMACAddress(eth.getDestinationMACAddress());
-		
+
 		IPv4 l3 = new IPv4();
 		l3.setDestinationAddress(ipv4.getSourceAddress());
 		l3.setSourceAddress(ipv4.getDestinationAddress());
@@ -231,45 +247,111 @@ public class OFUtils {
 
 		l4.setDestinationPort(tcp.getSourcePort());
 		l4.setSourcePort(tcp.getDestinationPort());
-		short synAck = (short) 0x018;
-		l4.setFlags(synAck);
-		l4.setAcknowledge(tcp.getSequence() + 1);
 		l4.setWindowSize(tcp.getWindowSize());
-		l4.setOptions(getSYNACKOptions(tcp.getOptions()));
-		l4.resetChecksum();
-		
-		StringBuilder builder = new StringBuilder();
-		builder.append("HTTP/1.1 301 Moved Permanently\r\n");
-		builder.append("Location: http://10.0.0.2\r\n");
-		builder.append("Connection: Keep-Alive\r\n");
-		builder.append("\r\n");
-		String httpHeader = builder.toString();
-		Data l7 = new Data();
-		l7.setData(httpHeader.getBytes());
 
+		if (flag == ACK_FLAG) {
+			byte[] payloadData = ((Data)tcp.getPayload()).getData();
+			l4.setOptions(getAckOptions(tcp.getOptions()));
+			l4.setAcknowledge(tcp.getSequence() + payloadData.length);
+			l4.setSequence(tcp.getAcknowledge());
+			l4.setFlags(ACK_FLAG);
+		}
+		else if(flag == PSH_ACK_FLAG) {
+			byte[] payloadData = ((Data)tcp.getPayload()).getData();
+			l4.setOptions(getAckOptions(tcp.getOptions()));
+			l4.setAcknowledge(tcp.getSequence() + payloadData.length);
+			l4.setSequence(tcp.getAcknowledge());
+			l4.setFlags(PSH_ACK_FLAG);
+		}
+
+		l4.resetChecksum();
 		l4.setPayload(null);
 		l4.setPayload(l7);
 		l3.setPayload(l4);
 		l2.setPayload(l3);
-		
-		byte[] serializedData = l2.serialize();
-		
+
+		return l2.serialize();
+	}
+
+	public static void sendPacketOut(IOFSwitch sw, OFPort outputPort, byte[] data) {
+
 		OFPacketOut po = sw
 				.getOFFactory()
 				.buildPacketOut()
-				.setData(serializedData)
+				.setData(data)
 				.setActions(
 						Collections.singletonList((OFAction) sw.getOFFactory()
-								.actions().output(inPort, 0xffFFffFF)))
+								.actions().output(outputPort, 0xffFFffFF)))
 				.setInPort(OFPort.CONTROLLER).build();
 
 		sw.write(po);
+	}
+
+	public static void redirectHttpRequest(IOFSwitch sw, OFMessage msg,
+			IPv4 ipv4, Ethernet eth, TCP tcp, String destinationHost) {
+
+		OFPacketIn pi = (OFPacketIn) msg;
+
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
+				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+
+		StringBuilder builder = new StringBuilder();
+		builder.append("HTTP/1.1 301 Moved Permanently\r\n");
+		builder.append("Location: http://10.0.0.2\r\n");
+		builder.append("Connection: Keep-Alive\r\n");
+		
+//		builder.append("HTTP/1.1 200 OK\r\n");
+
+		builder.append("\r\n");
+		String httpHeader = builder.toString();
+		Data l7 = new Data();
+		l7.setData(httpHeader.getBytes());
+		
+		byte[] tcpAck = getTCPResponse(eth, ipv4, tcp, ACK_FLAG , null);
+		sendPacketOut(sw, inPort, tcpAck);
+		
+		byte[] httpRedirect = getTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG, l7);
+		sendPacketOut(sw, inPort, httpRedirect);
 		
 	}
 
-	public static void flood(IOFSwitch sw, Ethernet eth, OFMessage msg) {
-		// TODO Auto-generated method stub
-		
+	private static byte[] getAckOptions(byte[] options) {
+
+		ByteBuffer bb = ByteBuffer.wrap(options);
+		int tsVal = -1;
+		int tsecr = -1;
+
+		while (bb.hasRemaining()) {
+			byte kind = bb.get();
+
+			if (kind != 1) {
+				byte length = bb.get();
+
+				if (kind != 8) {
+					for (int i = 0; i < length - 2; i++) {
+						bb.get();
+					}
+				} else {
+					tsVal = bb.getInt();
+					tsecr = bb.getInt();
+				}
+			}
+		}
+
+		byte[] newOptions = new byte[12];
+
+		ByteBuffer newbb = ByteBuffer.wrap(newOptions);
+
+		for (int i = 0; i < ackOptionsHeader.length; i++) {
+			newbb.put(ackOptionsHeader[i]);
+		}
+		int temp = tsVal;
+		tsVal = tsecr + 1;
+		tsecr = temp;
+		newbb.putInt(tsVal);
+		newbb.putInt(tsecr);
+
+		return newOptions;
 	}
 
 }

@@ -57,8 +57,8 @@ public class OFUtils {
 
 	public static final short SYN_ACK_FLAG = (short) 0x012;
 
-	private static byte[] ackOptionsHeader = new byte[] { (byte) 0x01, (byte) 0x01,
-			(byte) 0x08, (byte) 0x0a,
+	private static byte[] ackOptionsHeader = new byte[] { (byte) 0x01,
+			(byte) 0x01, (byte) 0x08, (byte) 0x0a,
 	// (byte) 0x00, (byte) 0x64, (byte) 0xf2, (byte) 0xae,
 	// (byte) 0x00, (byte) 0x5a, (byte) 0x2c, (byte) 0x6e
 	};
@@ -148,86 +148,16 @@ public class OFUtils {
 			Ethernet eth, TCP tcp) {
 
 		OFPacketIn pi = (OFPacketIn) msg;
-
 		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
 				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
 
-		Ethernet l2 = new Ethernet();
-		l2.setSourceMACAddress(IcnModule.VMAC);
-		l2.setDestinationMACAddress(eth.getSourceMACAddress());
-		l2.setEtherType(EthType.IPv4);
-
-		IPv4 l3 = new IPv4();
-		l3.setDestinationAddress(ipv4.getSourceAddress());
-		l3.setSourceAddress(ipv4.getDestinationAddress());
-		l3.setDiffServ(ipv4.getDiffServ());
-		l3.setChecksum(ipv4.getChecksum());
-		l3.setFlags(ipv4.getFlags());
-		l3.setTtl((byte) 32);
-		l3.setIdentification(ipv4.getIdentification());
-		l3.resetChecksum();
-
-		TCP l4 = (TCP) tcp.clone();
-
-		l4.setDestinationPort(tcp.getSourcePort());
-		l4.setSourcePort(tcp.getDestinationPort());
-		short synAck = (short) 0x012;
-		l4.setFlags(synAck);
-		l4.setAcknowledge(tcp.getSequence() + 1);
-		l4.setWindowSize(tcp.getWindowSize());
-		l4.setOptions(getSYNACKOptions(tcp.getOptions()));
-		l4.resetChecksum();
-
-		l3.setPayload(l4);
-		l2.setPayload(l3);
-
-		byte[] serializedData = l2.serialize();
-
-		OFPacketOut po = sw
-				.getOFFactory()
-				.buildPacketOut()
-				/* mySwitch is some IOFSwitch object */
-				.setData(serializedData)
-				.setActions(
-						Collections.singletonList((OFAction) sw.getOFFactory()
-								.actions().output(inPort, 0xffFFffFF)))
-				.setInPort(OFPort.CONTROLLER).build();
-
-		sw.write(po);
+		byte[] tcpSynAck = generateTCPResponse(eth, ipv4, tcp, SYN_ACK_FLAG, null);
+		sendPacketOut(sw, inPort, tcpSynAck);
 
 	}
 
-	private static byte[] getSYNACKOptions(byte[] options) {
-		ByteBuffer bb = ByteBuffer.wrap(options);
-		byte[] synDataOptions = new byte[options.length];
-		ByteBuffer synbb = ByteBuffer.wrap(synDataOptions);
-
-		while (bb.hasRemaining()) {
-			byte kind = bb.get();
-			synbb.put(kind);
-
-			if (kind != 1) {
-				byte length = bb.get();
-				synbb.put(length);
-
-				if (kind != 8) {
-					for (int i = 0; i < length - 2; i++) {
-						synbb.put(bb.get());
-					}
-				} else {
-					int tsVal = bb.getInt();
-					int tsecr = bb.getInt();
-
-					synbb.putInt(Math.abs((int) System.currentTimeMillis()));
-					synbb.putInt(tsVal);
-				}
-			}
-		}
-		return synDataOptions;
-	}
-
-	public static byte[] getTCPResponse(Ethernet eth, IPv4 ipv4, TCP tcp, short flag,
-			Data l7) {
+	public static byte[] generateTCPResponse(Ethernet eth, IPv4 ipv4, TCP tcp,
+			short flag, Data l7) {
 
 		Ethernet l2 = (Ethernet) eth.clone();
 		l2.setDestinationMACAddress(eth.getSourceMACAddress());
@@ -250,18 +180,21 @@ public class OFUtils {
 		l4.setWindowSize(tcp.getWindowSize());
 
 		if (flag == ACK_FLAG) {
-			byte[] payloadData = ((Data)tcp.getPayload()).getData();
+			byte[] payloadData = ((Data) tcp.getPayload()).getData();
 			l4.setOptions(getAckOptions(tcp.getOptions()));
 			l4.setAcknowledge(tcp.getSequence() + payloadData.length);
 			l4.setSequence(tcp.getAcknowledge());
 			l4.setFlags(ACK_FLAG);
-		}
-		else if(flag == PSH_ACK_FLAG) {
-			byte[] payloadData = ((Data)tcp.getPayload()).getData();
+		} else if (flag == PSH_ACK_FLAG) {
+			byte[] payloadData = ((Data) tcp.getPayload()).getData();
 			l4.setOptions(getAckOptions(tcp.getOptions()));
 			l4.setAcknowledge(tcp.getSequence() + payloadData.length);
 			l4.setSequence(tcp.getAcknowledge());
 			l4.setFlags(PSH_ACK_FLAG);
+		} else if (flag == SYN_ACK_FLAG) {
+			l4.setAcknowledge(tcp.getSequence() + 1);
+			l4.setOptions(getSYNACKOptions(tcp.getOptions()));
+			l4.setFlags(SYN_ACK_FLAG);
 		}
 
 		l4.resetChecksum();
@@ -273,7 +206,8 @@ public class OFUtils {
 		return l2.serialize();
 	}
 
-	public static void sendPacketOut(IOFSwitch sw, OFPort outputPort, byte[] data) {
+	public static void sendPacketOut(IOFSwitch sw, OFPort outputPort,
+			byte[] data) {
 
 		OFPacketOut po = sw
 				.getOFFactory()
@@ -296,23 +230,21 @@ public class OFUtils {
 				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
 
 		StringBuilder builder = new StringBuilder();
-		builder.append("HTTP/1.1 301 Moved Permanently\r\n");
+		builder.append("HTTP/1.1 302 Found\r\n");
 		builder.append("Location: http://10.0.0.2\r\n");
 		builder.append("Connection: Keep-Alive\r\n");
-		
-//		builder.append("HTTP/1.1 200 OK\r\n");
 
 		builder.append("\r\n");
 		String httpHeader = builder.toString();
 		Data l7 = new Data();
 		l7.setData(httpHeader.getBytes());
-		
-		byte[] tcpAck = getTCPResponse(eth, ipv4, tcp, ACK_FLAG , null);
+
+		byte[] tcpAck = generateTCPResponse(eth, ipv4, tcp, ACK_FLAG, null);
 		sendPacketOut(sw, inPort, tcpAck);
-		
-		byte[] httpRedirect = getTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG, l7);
+
+		byte[] httpRedirect = generateTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG, l7);
 		sendPacketOut(sw, inPort, httpRedirect);
-		
+
 	}
 
 	private static byte[] getAckOptions(byte[] options) {
@@ -352,6 +284,35 @@ public class OFUtils {
 		newbb.putInt(tsecr);
 
 		return newOptions;
+	}
+	
+	private static byte[] getSYNACKOptions(byte[] options) {
+		ByteBuffer bb = ByteBuffer.wrap(options);
+		byte[] synDataOptions = new byte[options.length];
+		ByteBuffer synbb = ByteBuffer.wrap(synDataOptions);
+
+		while (bb.hasRemaining()) {
+			byte kind = bb.get();
+			synbb.put(kind);
+
+			if (kind != 1) {
+				byte length = bb.get();
+				synbb.put(length);
+
+				if (kind != 8) {
+					for (int i = 0; i < length - 2; i++) {
+						synbb.put(bb.get());
+					}
+				} else {
+					int tsVal = bb.getInt();
+					int tsecr = bb.getInt();
+
+					synbb.putInt(Math.abs((int) System.currentTimeMillis()));
+					synbb.putInt(tsVal);
+				}
+			}
+		}
+		return synDataOptions;
 	}
 
 }

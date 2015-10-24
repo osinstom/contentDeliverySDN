@@ -22,6 +22,8 @@ import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.TCP;
 import net.floodlightcontroller.packet.UDP;
+import net.floodlightcontroller.routing.IRoutingService;
+import net.floodlightcontroller.topology.ITopologyService;
 
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPortDesc;
@@ -41,6 +43,9 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	protected static Logger logger;
 
 	public IOFSwitchService switchService = null;
+	public IRoutingService routingService = null;
+	public ITopologyService topologyService = null;
+
 
 	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
 	protected final static MacAddress VMAC = MacAddress.of("00:00:00:00:00:10");
@@ -63,6 +68,8 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		Collection<Class<? extends IFloodlightService>> dependencies = new ArrayList<Class<? extends IFloodlightService>>();
 		dependencies.add(IFloodlightProviderService.class);
 		dependencies.add(IOFSwitchService.class);
+		dependencies.add(IRoutingService.class);
+		dependencies.add(ITopologyService.class);
 		return dependencies;
 	}
 
@@ -72,84 +79,54 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		floodlightProvider = context
 				.getServiceImpl(IFloodlightProviderService.class);
 		switchService = context.getServiceImpl(IOFSwitchService.class);
+		routingService = context.getServiceImpl(IRoutingService.class);
+		topologyService = context.getServiceImpl(ITopologyService.class);
 		logger = LoggerFactory.getLogger(IcnModule.class);
-
 	}
 
 	@Override
 	public void startUp(FloodlightModuleContext context)
 			throws FloodlightModuleException {
 		floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
-
 		switchService.addOFSwitchListener(new SwitchListener(switchService));
-
 	}
 
 	@Override
 	public String getName() {
-		// TODO Auto-generated method stub
 		return IcnModule.class.getSimpleName();
 	}
 
 	@Override
 	public boolean isCallbackOrderingPrereq(OFType type, String name) {
-		// TODO Auto-generated method stub
 		return true;
 	}
 
 	@Override
 	public boolean isCallbackOrderingPostreq(OFType type, String name) {
-		// TODO Auto-generated method stub
 		return true;
 	}
 
 	@Override
 	public net.floodlightcontroller.core.IListener.Command receive(
 			IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-		// TODO Auto-generated method stub
+		
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
 		if (eth.getEtherType().equals(EthType.ARP)) {
 			ARP arp = (ARP) eth.getPayload();
-
 			if (arp.getTargetProtocolAddress().equals(VIP))
 				OFUtils.pushARP(sw, eth, msg);
 
-			// logger.info("" + arp.getSenderHardwareAddress());
 		}
 
 		if (eth.getEtherType().equals(EthType.IPv4)) {
 			IPv4 ipv4 = (IPv4) eth.getPayload();
-			logger.info("SRC IP=" + ipv4.getSourceAddress());
-			logger.info("IP DST: " + ipv4.getDestinationAddress() + " ? " + VIP);
 
 			if (ipv4.getProtocol().equals(IpProtocol.TCP)) {
-				/* We got a TCP packet; get the payload from IPv4 */
-
+				
 				TCP tcp = (TCP) ipv4.getPayload();
-				
-				if(new String(((Data)tcp.getPayload()).serialize()).contains("HTTP") ) {
-					OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, "10.0.0.2");
-				}
-
-				short SYN = 2;
-				if(tcp.getFlags()==SYN && ipv4.getDestinationAddress().equals(VIP) && tcp.getDestinationPort().equals(TransportPort.of(80))) {
-					logger.info("Handling TCP SYN");
-					OFUtils.sendSynAck(sw, msg, ipv4, eth, tcp);
-				}
-				
-				
-				
-			} else if (ipv4.getProtocol().equals(IpProtocol.UDP)) {
-				/* We got a UDP packet; get the payload from IPv4 */
-				UDP udp = (UDP) ipv4.getPayload();
-				logger.info("Transport protocol: " + ipv4.getProtocol());
-				logger.info("SRC PORT=" + udp.getSourcePort());
-				logger.info("DST PORT=" + udp.getDestinationPort());
-				/* Various getters and setters are exposed in UDP */
-
-				/* Your logic here! */
+				IcnUtils.handleTcp(sw, msg, eth, ipv4, tcp);
 			}
 		}
 
@@ -166,33 +143,24 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 		@Override
 		public void switchAdded(DatapathId switchId) {
-			//OFUtils.insertHTTPDpiFlow(switchService.getSwitch(switchId));
+			OFUtils.insertHTTPDpiFlow(switchService.getSwitch(switchId));
 		}
 
 		@Override
-		public void switchRemoved(DatapathId switchId) {
-			// TODO Auto-generated method stub
-
-		}
+		public void switchRemoved(DatapathId switchId) { }
 
 		@Override
 		public void switchActivated(DatapathId switchId) {
-			// TODO Auto-generated method stub
 			//OFUtils.insertHTTPDpiFlow(switchService.getActiveSwitch(switchId));
 		}
 
 		@Override
 		public void switchPortChanged(DatapathId switchId, OFPortDesc port,
 				PortChangeType type) {
-			// TODO Auto-generated method stub
-
 		}
 
 		@Override
-		public void switchChanged(DatapathId switchId) {
-			// TODO Auto-generated method stub
-
-		}
+		public void switchChanged(DatapathId switchId) { }
 
 	}
 

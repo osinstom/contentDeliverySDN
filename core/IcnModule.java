@@ -117,6 +117,8 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 			ARP arp = (ARP) eth.getPayload();
 			if (arp.getTargetProtocolAddress().equals(VIP))
 				OFUtils.pushARP(sw, eth, msg);
+			else 
+				OFUtils.flood(sw, eth, msg);
 
 		}
 
@@ -126,7 +128,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 			if (ipv4.getProtocol().equals(IpProtocol.TCP)) {
 				
 				TCP tcp = (TCP) ipv4.getPayload();
-				IcnUtils.handleTcp(sw, msg, eth, ipv4, tcp);
+				IcnEngine.handleTcp(sw, msg, eth, ipv4, tcp);
 			}
 		}
 

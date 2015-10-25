@@ -1,16 +1,11 @@
 package icn.core;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
-import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IOFSwitch;
-import net.floodlightcontroller.core.IOFSwitchListener;
-import net.floodlightcontroller.core.PortChangeType;
 import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Data;
 import net.floodlightcontroller.packet.Ethernet;
@@ -18,28 +13,21 @@ import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.TCP;
 import net.floodlightcontroller.util.FlowModUtils;
 
-import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFFactory;
 import org.projectfloodlight.openflow.protocol.OFFlowAdd;
-import org.projectfloodlight.openflow.protocol.OFMatchV1;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFPacketOut;
-import org.projectfloodlight.openflow.protocol.OFPortDesc;
 import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.ArpOpcode;
-import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.EthType;
-import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.OFBufferId;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.TransportPort;
 import org.projectfloodlight.openflow.types.U64;
-
-import com.sun.media.jfxmedia.logging.Logger;
 
 public class OFUtils {
 
@@ -231,7 +219,7 @@ public class OFUtils {
 
 		StringBuilder builder = new StringBuilder();
 		builder.append("HTTP/1.1 302 Found\r\n");
-		builder.append("Location: http://10.0.0.2\r\n");
+		builder.append("Location: http://" + destinationHost + "\r\n");
 		builder.append("Connection: Keep-Alive\r\n");
 
 		builder.append("\r\n");
@@ -313,6 +301,10 @@ public class OFUtils {
 			}
 		}
 		return synDataOptions;
+	}
+	
+	public static void flood(IOFSwitch sw, Ethernet eth, OFMessage msg) {
+		sendPacketOut(sw, OFPort.FLOOD, ((OFPacketIn)msg).getData());
 	}
 
 }

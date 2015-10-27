@@ -212,7 +212,7 @@ public class OFUtils {
 	}
 
 	public static void redirectHttpRequest(IOFSwitch sw, OFMessage msg,
-			IPv4 ipv4, Ethernet eth, TCP tcp, String srcIp, String dstIp) {
+			IPv4 ipv4, Ethernet eth, TCP tcp, String srcIp, String dstUrl) {
 
 		OFPacketIn pi = (OFPacketIn) msg;
 
@@ -221,7 +221,7 @@ public class OFUtils {
 
 		StringBuilder builder = new StringBuilder();
 		builder.append("HTTP/1.1 302 Found\r\n");
-		builder.append("Location: http://" + dstIp + "\r\n");
+		builder.append("Location: http://" + dstUrl + "\r\n");
 		builder.append("Connection: Keep-Alive\r\n");
 
 		builder.append("\r\n");
@@ -232,7 +232,7 @@ public class OFUtils {
 		byte[] tcpAck = generateTCPResponse(eth, ipv4, tcp, ACK_FLAG, null);
 		sendPacketOut(sw, inPort, tcpAck);
 		
-		IcnEngine.getInstance().prepareRoute(srcIp, dstIp, tcp.getSourcePort(), tcp.getDestinationPort());
+		IcnEngine.getInstance().prepareRoute(srcIp, dstUrl.substring(0, dstUrl.indexOf("/")), tcp.getSourcePort(), tcp.getDestinationPort());
 
 		byte[] httpRedirect = generateTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG,
 				l7);

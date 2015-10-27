@@ -1,6 +1,8 @@
 package icn.core;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 import net.floodlightcontroller.core.IOFSwitch;
@@ -32,6 +34,8 @@ import org.projectfloodlight.openflow.types.U64;
 
 public class IcnEngine extends IcnForwarding {
 
+	private HashMap<String, HashMap<IPv4Address, Integer>> contentRequestsStats = null;
+
 	public static IcnEngine instance = null;
 
 	private final Match.Builder icnFlowMatchBuilder = OFFactories
@@ -62,15 +66,22 @@ public class IcnEngine extends IcnForwarding {
 		return instance;
 	}
 
-	public static void handleTcp(IOFSwitch sw, OFMessage msg, Ethernet eth,
-			IPv4 ipv4, TCP tcp) {
+	public IcnEngine() {
+		contentRequestsStats = new HashMap<String, HashMap<IPv4Address, Integer>>();
+	}
+
+	public void handleTcp(IOFSwitch sw, OFMessage msg, Ethernet eth, IPv4 ipv4,
+			TCP tcp) {
 		String payload = new String(((Data) tcp.getPayload()).serialize());
 		IcnModule.logger.info(payload);
 		if (payload.contains("HTTP") && payload.contains("GET")) { // HTTP GET =
 																	// ContentRequest
-
-			String contentSource = getContentSource(Utils.getContentId(payload));
+			String contentId = Utils.getContentId(payload);
+			String contentSource = getContentSource(contentId);
 			String srcIp = ipv4.getSourceAddress().toString();
+
+			if (contentSource != null)
+				updateContentStats(contentId, IPv4Address.of(srcIp));
 
 			OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 					contentSource);
@@ -84,12 +95,37 @@ public class IcnEngine extends IcnForwarding {
 
 	}
 
-	private static String getContentSource(String contentId) {
+	private void updateContentStats(String contentId, IPv4Address srcIp) {
+
+		if (!contentRequestsStats.containsKey(contentId)) {
+			HashMap<IPv4Address, Integer> inner = new HashMap<IPv4Address, Integer>();
+			inner.put(srcIp, 1);
+			contentRequestsStats.put(contentId, inner);
+		} else if (contentRequestsStats.containsKey(contentId)
+				&& !contentRequestsStats.get(contentId).containsKey(
+						srcIp)) {
+			contentRequestsStats.get(contentId).put(srcIp, 1);
+		} else {
+			contentRequestsStats.get(contentId).put(srcIp,
+					contentRequestsStats.get(contentId).get(srcIp) + 1);
+		}
+
+		IcnModule.logger.info(contentRequestsStats.toString());
+		IcnModule.logger.info("CONTENT POPULARITY STATS: \nContent ["
+				+ contentId + "] was requested "
+				+ contentRequestsStats.get(contentId).get(srcIp)
+				+ " times from " + srcIp);
+
+	}
+
+	private String getContentSource(String contentId) {
 
 		// HERE ICN ENGINE LOGIC
 		if (contentId.equals("abc123"))
-			return "10.0.0.2";
-
+			return "10.0.0.2/Files/abc123.txt";
+		else if(contentId.equals("index"))
+			return "10.0.0.2/Files/index.html";
+		
 		return null;
 	}
 
@@ -116,12 +152,11 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	private void prepareRoute(DatapathId srcSwId, DatapathId dstSwId) {
-		
+
 		Route route = routingService.getRoute(srcSwId, dstSwId, null);
 	}
 
-	private void prepareRoute(IDevice srcDevice,
-			IDevice dstDevice) {
+	private void prepareRoute(IDevice srcDevice, IDevice dstDevice) {
 
 		Route forwardRoute = new Route(
 				srcDevice.getAttachmentPoints()[0].getSwitchDPID(),
@@ -147,8 +182,10 @@ public class IcnEngine extends IcnForwarding {
 						.getPort()));
 		reverseRoute.setPath(reversePath);
 
-		IcnModule.logger.info("DPID" + srcDevice.getAttachmentPoints()[0].getSwitchDPID());
-		IOFSwitch sw = switchService.getActiveSwitch(srcDevice.getAttachmentPoints()[0].getSwitchDPID());
+		IcnModule.logger.info("DPID"
+				+ srcDevice.getAttachmentPoints()[0].getSwitchDPID());
+		IOFSwitch sw = switchService.getActiveSwitch(srcDevice
+				.getAttachmentPoints()[0].getSwitchDPID());
 
 		Match.Builder forwardMatch = icnFlowMatchBuilder
 				.setExact(MatchField.IN_PORT,
@@ -158,14 +195,15 @@ public class IcnEngine extends IcnForwarding {
 				.setExact(MatchField.TCP_DST, TransportPort.of(80));
 
 		Match.Builder reverseMatch = OFFactories
-				.getFactory(OFVersion.OF_13).buildMatch()
+				.getFactory(OFVersion.OF_13)
+				.buildMatch()
 				.setExact(MatchField.ETH_TYPE, EthType.IPv4)
 				.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
 				.setExact(MatchField.IN_PORT,
 						dstDevice.getAttachmentPoints()[0].getPort())
 				.setExact(MatchField.IPV4_SRC, dstDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.IPV4_DST, srcDevice.getIPv4Addresses()[0]);
-		
+
 		U64 cookie = AppCookie.makeCookie(2, 0);
 
 		pushRoute(forwardRoute, forwardMatch.build(), sw.getId(), cookie,
@@ -174,6 +212,5 @@ public class IcnEngine extends IcnForwarding {
 				OFFlowModCommand.ADD);
 
 	}
-
 
 }

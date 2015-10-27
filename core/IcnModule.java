@@ -138,7 +138,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 			if (ipv4.getProtocol().equals(IpProtocol.TCP)) {
 				
 				TCP tcp = (TCP) ipv4.getPayload();
-				IcnEngine.handleTcp(sw, msg, eth, ipv4, tcp);
+				IcnEngine.getInstance().handleTcp(sw, msg, eth, ipv4, tcp);
 			}
 		}
 

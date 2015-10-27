@@ -16,6 +16,7 @@ import net.floodlightcontroller.core.module.FloodlightModuleContext;
 import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
+import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Data;
 import net.floodlightcontroller.packet.Ethernet;
@@ -45,6 +46,8 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public IOFSwitchService switchService = null;
 	public IRoutingService routingService = null;
 	public ITopologyService topologyService = null;
+	public IDeviceService deviceService = null;
+	
 
 
 	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
@@ -70,6 +73,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		dependencies.add(IOFSwitchService.class);
 		dependencies.add(IRoutingService.class);
 		dependencies.add(ITopologyService.class);
+		dependencies.add(IDeviceService.class);
 		return dependencies;
 	}
 
@@ -81,6 +85,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		switchService = context.getServiceImpl(IOFSwitchService.class);
 		routingService = context.getServiceImpl(IRoutingService.class);
 		topologyService = context.getServiceImpl(ITopologyService.class);
+		deviceService = context.getServiceImpl(IDeviceService.class);
 		logger = LoggerFactory.getLogger(IcnModule.class);
 	}
 
@@ -89,6 +94,11 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 			throws FloodlightModuleException {
 		floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
 		switchService.addOFSwitchListener(new SwitchListener(switchService));
+		
+		IcnEngine.getInstance().setTopologyService(this.topologyService);
+		IcnEngine.getInstance().setRoutingService(this.routingService);
+		IcnEngine.getInstance().setDeviceService(this.deviceService);
+		IcnEngine.getInstance().setSwitchService(this.switchService);
 	}
 
 	@Override

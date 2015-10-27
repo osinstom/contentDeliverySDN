@@ -20,6 +20,7 @@ import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFPacketOut;
 import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
+import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.ArpOpcode;
 import org.projectfloodlight.openflow.types.EthType;
@@ -139,7 +140,8 @@ public class OFUtils {
 		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
 				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
 
-		byte[] tcpSynAck = generateTCPResponse(eth, ipv4, tcp, SYN_ACK_FLAG, null);
+		byte[] tcpSynAck = generateTCPResponse(eth, ipv4, tcp, SYN_ACK_FLAG,
+				null);
 		sendPacketOut(sw, inPort, tcpSynAck);
 
 	}
@@ -210,7 +212,7 @@ public class OFUtils {
 	}
 
 	public static void redirectHttpRequest(IOFSwitch sw, OFMessage msg,
-			IPv4 ipv4, Ethernet eth, TCP tcp, String destinationHost) {
+			IPv4 ipv4, Ethernet eth, TCP tcp, String srcIp, String dstIp) {
 
 		OFPacketIn pi = (OFPacketIn) msg;
 
@@ -219,7 +221,7 @@ public class OFUtils {
 
 		StringBuilder builder = new StringBuilder();
 		builder.append("HTTP/1.1 302 Found\r\n");
-		builder.append("Location: http://" + destinationHost + "\r\n");
+		builder.append("Location: http://" + dstIp + "\r\n");
 		builder.append("Connection: Keep-Alive\r\n");
 
 		builder.append("\r\n");
@@ -229,8 +231,11 @@ public class OFUtils {
 
 		byte[] tcpAck = generateTCPResponse(eth, ipv4, tcp, ACK_FLAG, null);
 		sendPacketOut(sw, inPort, tcpAck);
+		
+		IcnEngine.getInstance().prepareRoute(srcIp, dstIp, tcp.getSourcePort(), tcp.getDestinationPort());
 
-		byte[] httpRedirect = generateTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG, l7);
+		byte[] httpRedirect = generateTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG,
+				l7);
 		sendPacketOut(sw, inPort, httpRedirect);
 
 	}
@@ -273,7 +278,7 @@ public class OFUtils {
 
 		return newOptions;
 	}
-	
+
 	private static byte[] getSYNACKOptions(byte[] options) {
 		ByteBuffer bb = ByteBuffer.wrap(options);
 		byte[] synDataOptions = new byte[options.length];
@@ -302,9 +307,24 @@ public class OFUtils {
 		}
 		return synDataOptions;
 	}
-	
+
 	public static void flood(IOFSwitch sw, Ethernet eth, OFMessage msg) {
-		sendPacketOut(sw, OFPort.FLOOD, ((OFPacketIn)msg).getData());
+		sendPacketOut(sw, OFPort.FLOOD, ((OFPacketIn) msg).getData());
+	}
+
+	public static void installRule(IOFSwitch sw, Match match,
+			OFPort outputPort, List<OFAction> actions) {
+
+		OFFlowAdd flowAdd = sw.getOFFactory().buildFlowAdd()
+				.setMatch(match)
+				.setOutPort(outputPort)
+				.setActions(actions)
+				.build();
+
+		sw.write(flowAdd);
+		
+		IcnModule.logger.info("RULE INSTALLED: " + flowAdd.toString());
+
 	}
 
 }

@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.internal.IOFSwitchService;
@@ -15,6 +17,7 @@ import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.TCP;
 import net.floodlightcontroller.routing.IRoutingService;
+import net.floodlightcontroller.routing.Link;
 import net.floodlightcontroller.routing.Route;
 import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.topology.NodePortTuple;
@@ -42,22 +45,6 @@ public class IcnEngine extends IcnForwarding {
 			.getFactory(OFVersion.OF_13).buildMatch()
 			.setExact(MatchField.ETH_TYPE, EthType.IPv4)
 			.setExact(MatchField.IP_PROTO, IpProtocol.TCP);
-
-	public void setSwitchService(IOFSwitchService switchService) {
-		this.switchService = switchService;
-	}
-
-	public void setRoutingService(IRoutingService routingService) {
-		this.routingService = routingService;
-	}
-
-	public void setTopologyService(ITopologyService topologyService) {
-		this.topologyService = topologyService;
-	}
-
-	public void setDeviceService(IDeviceService deviceService) {
-		this.deviceService = deviceService;
-	}
 
 	public static IcnEngine getInstance() {
 		if (instance == null)
@@ -154,6 +141,8 @@ public class IcnEngine extends IcnForwarding {
 	private void prepareRoute(DatapathId srcSwId, DatapathId dstSwId) {
 
 		Route route = routingService.getRoute(srcSwId, dstSwId, null);
+		
+		
 	}
 
 	private void prepareRoute(IDevice srcDevice, IDevice dstDevice) {

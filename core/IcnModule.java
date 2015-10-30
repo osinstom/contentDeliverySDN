@@ -17,6 +17,7 @@ import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.devicemanager.IDeviceService;
+import net.floodlightcontroller.multipathrouting.IMultiPathRoutingService;
 import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Data;
 import net.floodlightcontroller.packet.Ethernet;
@@ -47,9 +48,8 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public IRoutingService routingService = null;
 	public ITopologyService topologyService = null;
 	public IDeviceService deviceService = null;
+	public IMultiPathRoutingService mpathRoutingService = null;
 	
-
-
 	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
 	protected final static MacAddress VMAC = MacAddress.of("00:00:00:00:00:10");
 
@@ -74,6 +74,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		dependencies.add(IRoutingService.class);
 		dependencies.add(ITopologyService.class);
 		dependencies.add(IDeviceService.class);
+		dependencies.add(IMultiPathRoutingService.class);
 		return dependencies;
 	}
 
@@ -86,6 +87,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		routingService = context.getServiceImpl(IRoutingService.class);
 		topologyService = context.getServiceImpl(ITopologyService.class);
 		deviceService = context.getServiceImpl(IDeviceService.class);
+		mpathRoutingService = context.getServiceImpl(IMultiPathRoutingService.class);
 		logger = LoggerFactory.getLogger(IcnModule.class);
 	}
 
@@ -99,6 +101,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		IcnEngine.getInstance().setRoutingService(this.routingService);
 		IcnEngine.getInstance().setDeviceService(this.deviceService);
 		IcnEngine.getInstance().setSwitchService(this.switchService);
+		IcnEngine.getInstance().setMpathRoutingService(mpathRoutingService);
 	}
 
 	@Override
@@ -127,8 +130,8 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 			ARP arp = (ARP) eth.getPayload();
 			if (arp.getTargetProtocolAddress().equals(VIP))
 				OFUtils.pushARP(sw, eth, msg);
-			else 
-				OFUtils.flood(sw, eth, msg);
+//			else 
+//				OFUtils.flood(sw, eth, msg);
 
 		}
 

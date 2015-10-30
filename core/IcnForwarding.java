@@ -17,6 +17,7 @@ import org.projectfloodlight.openflow.types.U64;
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.internal.IOFSwitchService;
 import net.floodlightcontroller.devicemanager.IDeviceService;
+import net.floodlightcontroller.multipathrouting.IMultiPathRoutingService;
 import net.floodlightcontroller.routing.IRoutingService;
 import net.floodlightcontroller.routing.Route;
 import net.floodlightcontroller.topology.ITopologyService;
@@ -35,6 +36,23 @@ public class IcnForwarding {
 	protected IDeviceService deviceService;
 	protected IRoutingService routingService;
 	protected ITopologyService topologyService;
+	protected IMultiPathRoutingService mpathRoutingService;
+	
+	public void setSwitchService(IOFSwitchService switchService) {
+		this.switchService = switchService;
+	}
+
+	public void setRoutingService(IRoutingService routingService) {
+		this.routingService = routingService;
+	}
+
+	public void setTopologyService(ITopologyService topologyService) {
+		this.topologyService = topologyService;
+	}
+
+	public void setDeviceService(IDeviceService deviceService) {
+		this.deviceService = deviceService;
+	}
 	
 	protected boolean pushRoute(Route route, Match match, DatapathId id,
 			U64 cookie, OFFlowModCommand flowModCommand) {
@@ -123,6 +141,10 @@ public class IcnForwarding {
 
 		return packetOutSent;
 
+	}
+
+	public void setMpathRoutingService(IMultiPathRoutingService mpathRoutingService) {
+		this.mpathRoutingService = mpathRoutingService;
 	}
 
 }

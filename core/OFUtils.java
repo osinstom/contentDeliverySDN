@@ -1,9 +1,11 @@
 package icn.core;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.packet.ARP;
@@ -126,7 +128,8 @@ public class OFUtils {
 								.setExact(MatchField.TCP_DST,
 										TransportPort.of(80)).build())
 				.setCookie(U64.of(1L << 58))
-				.setPriority(FlowModUtils.PRIORITY_HIGH).build();
+				//.setPriority(FlowModUtils.PRIORITY_HIGH)
+				.build();
 
 		sw.write(httpGetFlow);
 
@@ -308,10 +311,6 @@ public class OFUtils {
 		return synDataOptions;
 	}
 
-	public static void flood(IOFSwitch sw, Ethernet eth, OFMessage msg) {
-		sendPacketOut(sw, OFPort.FLOOD, ((OFPacketIn) msg).getData());
-	}
-
 	public static void installRule(IOFSwitch sw, Match match,
 			OFPort outputPort, List<OFAction> actions) {
 
@@ -325,6 +324,32 @@ public class OFUtils {
 		
 		IcnModule.logger.info("RULE INSTALLED: " + flowAdd.toString());
 
+	}
+
+	public static void returnHttp404(IOFSwitch sw, OFMessage msg, IPv4 ipv4,
+			Ethernet eth, TCP tcp, String srcIp) {
+		
+		OFPacketIn pi = (OFPacketIn) msg;
+
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
+				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+
+		StringBuilder builder = new StringBuilder();
+		builder.append("HTTP/1.1 404 Not Found\r\n");
+		//builder.append("Connection: close\r\n");
+		builder.append("\r\n");
+		
+		String httpHeader = builder.toString();
+		Data l7 = new Data();
+		l7.setData(httpHeader.getBytes());
+
+		byte[] tcpAck = generateTCPResponse(eth, ipv4, tcp, ACK_FLAG, null);
+		sendPacketOut(sw, inPort, tcpAck);
+
+		byte[] http404 = generateTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG,
+				l7);
+		sendPacketOut(sw, inPort, http404);
+		
 	}
 
 }

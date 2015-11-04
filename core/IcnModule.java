@@ -16,7 +16,9 @@ import net.floodlightcontroller.core.module.FloodlightModuleContext;
 import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
+import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
+import net.floodlightcontroller.forwarding.Forwarding;
 import net.floodlightcontroller.multipathrouting.IMultiPathRoutingService;
 import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Data;
@@ -38,6 +40,8 @@ import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.TransportPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.sun.corba.se.spi.protocol.ForwardException;
 
 public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
@@ -125,13 +129,21 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+		
+		
+		IcnModule.logger.info("Packet type: " + eth.getEtherType());
+		IcnModule.logger.info("SRC Device: " + IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE));
+		IcnModule.logger.info("DST Device: " + IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_DST_DEVICE));
 
 		if (eth.getEtherType().equals(EthType.ARP)) {
 			ARP arp = (ARP) eth.getPayload();
 			if (arp.getTargetProtocolAddress().equals(VIP))
 				OFUtils.pushARP(sw, eth, msg);
-//			else 
-//				OFUtils.flood(sw, eth, msg);
+			else 
+				if(eth.isBroadcast() || eth.isMulticast())
+					IcnEngine.getInstance().flood(sw, eth, msg);
+				else
+					IcnEngine.getInstance().forward(sw, eth, msg, cntx);
 
 		}
 

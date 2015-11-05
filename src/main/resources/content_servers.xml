@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<servers>
+	<server name="h2">
+		<MacAddress>00:00:00:00:00:02</MacAddress>
+		<IPv4Address>10.0.0.2</IPv4Address>
+		<SwitchDPID>00:00:00:00:00:00:00:05</SwitchDPID>
+		<SwitchPort>1</SwitchPort>
+	</server>
+</servers>

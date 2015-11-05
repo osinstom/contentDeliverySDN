@@ -27,6 +27,7 @@ import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.ArpOpcode;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IpProtocol;
+import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.OFBufferId;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.TransportPort;
@@ -54,7 +55,7 @@ public class OFUtils {
 	// (byte) 0x00, (byte) 0x5a, (byte) 0x2c, (byte) 0x6e
 	};
 
-	public static void pushARP(IOFSwitch sw, Ethernet eth, OFMessage msg) {
+	public static void pushARP(IOFSwitch sw, Ethernet eth, OFMessage msg, MacAddress mac) {
 
 		OFPacketIn pi = (OFPacketIn) msg;
 
@@ -63,12 +64,12 @@ public class OFUtils {
 		IcnModule.logger.info("SRCMAC=" + eth.getSourceMACAddress());
 
 		Ethernet l2 = new Ethernet();
-		l2.setSourceMACAddress(IcnModule.VMAC);
+		l2.setSourceMACAddress(mac);
 		l2.setDestinationMACAddress(eth.getSourceMACAddress());
 		l2.setEtherType(EthType.ARP);
 
 		ARP l2_5 = new ARP();
-		l2_5.setSenderHardwareAddress(IcnModule.VMAC);
+		l2_5.setSenderHardwareAddress(mac);
 		l2_5.setTargetHardwareAddress(((ARP) eth.getPayload())
 				.getSenderHardwareAddress());
 		l2_5.setSenderProtocolAddress(((ARP) eth.getPayload())
@@ -97,6 +98,10 @@ public class OFUtils {
 								.actions().output(inPort, 0xffFFffFF)))
 				.setInPort(OFPort.CONTROLLER).build();
 
+		if(!Utils.arpTable.containsKey(((ARP) eth.getPayload()).getSenderProtocolAddress().toString()))
+			Utils.arpTable.setProperty(((ARP) eth.getPayload()).getSenderProtocolAddress().toString(), ((ARP) eth.getPayload())
+				.getSenderHardwareAddress().toString());
+		
 		sw.write(po);
 
 		IcnModule.logger.info("ARP Response packet sent");

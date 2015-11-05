@@ -18,6 +18,8 @@ import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
+import net.floodlightcontroller.devicemanager.internal.Device;
+import net.floodlightcontroller.devicemanager.internal.DeviceManagerImpl;
 import net.floodlightcontroller.forwarding.Forwarding;
 import net.floodlightcontroller.multipathrouting.IMultiPathRoutingService;
 import net.floodlightcontroller.packet.ARP;
@@ -43,7 +45,7 @@ import org.slf4j.LoggerFactory;
 
 import com.sun.corba.se.spi.protocol.ForwardException;
 
-public class IcnModule implements IOFMessageListener, IFloodlightModule {
+public class IcnModule extends DeviceManagerImpl implements IOFMessageListener, IFloodlightModule {
 
 	protected IFloodlightProviderService floodlightProvider;
 	protected static Logger logger;
@@ -93,6 +95,9 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		deviceService = context.getServiceImpl(IDeviceService.class);
 		mpathRoutingService = context.getServiceImpl(IMultiPathRoutingService.class);
 		logger = LoggerFactory.getLogger(IcnModule.class);
+		
+		//deviceMap.put(, new Device(deviceManager, deviceKey, entity, entityClass));
+		
 	}
 
 	@Override
@@ -142,8 +147,8 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 			else 
 				if(eth.isBroadcast() || eth.isMulticast())
 					IcnEngine.getInstance().flood(sw, eth, msg);
-				else
-					IcnEngine.getInstance().forward(sw, eth, msg, cntx);
+//				else
+//					IcnEngine.getInstance().forward(sw, eth, msg, cntx);
 
 		}
 

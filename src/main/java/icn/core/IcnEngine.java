@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import net.floodlightcontroller.core.FloodlightContext;
@@ -138,13 +139,17 @@ public class IcnEngine extends IcnForwarding {
 		for (IDevice device : deviceService.getAllDevices()) {
 			IcnModule.logger
 					.info("Device MAC: " + device.getMACAddressString());
-//			IcnModule.logger.info("AP: "
-//					+ device.getAttachmentPoints()[0].toString());
+			// IcnModule.logger.info("AP: "
+			// + device.getAttachmentPoints()[0].toString());
 			IcnModule.logger.info("Device: \n" + device.toString());
-			if (device.getIPv4Addresses()[0].equals(IPv4Address.of(srcIp)))
-				srcDevice = device;
-			else if (device.getIPv4Addresses()[0].equals(IPv4Address.of(dstIp)))
-				dstDevice = device;
+			if (device.getIPv4Addresses().length != 0
+					&& device.getIPv4Addresses()[0] != null) {
+				if (device.getIPv4Addresses()[0].equals(IPv4Address.of(srcIp)))
+					srcDevice = device;
+				else if (device.getIPv4Addresses()[0].equals(IPv4Address
+						.of(dstIp)))
+					dstDevice = device;
+			}
 		}
 
 		prepareRoute(srcDevice, dstDevice);
@@ -344,19 +349,19 @@ public class IcnEngine extends IcnForwarding {
 			U64 cookie = AppCookie.makeCookie(2, 0);
 
 			if (route != null) {
-				IcnModule.logger.debug(
-						"pushRoute inPort={} route={} " + "destination={}:{}",
-						new Object[] { inPort, route, dstDap.getSwitchDPID(),
-								dstDap.getPort() });
+				IcnModule.logger.debug("pushRoute inPort={} route={} "
+						+ "destination={}:{}", new Object[] { inPort, route,
+						dstDap.getSwitchDPID(), dstDap.getPort() });
 
-				IcnModule.logger.debug("Cretaing flow rules on the route, match rule: {}", m);
+				IcnModule.logger.debug(
+						"Cretaing flow rules on the route, match rule: {}", m);
 				pushRoute(route, m, cookie, OFFlowModCommand.ADD);
-				
+
 			} else {
 				/* Route traverses no links --> src/dst devices on same switch */
-				IcnModule.logger.debug(
-						"Could not compute route. Devices should be on same switch src={} and dst={}",
-						srcDevice, dstDevice);
+				IcnModule.logger
+						.debug("Could not compute route. Devices should be on same switch src={} and dst={}",
+								srcDevice, dstDevice);
 				Route r = new Route(
 						srcDevice.getAttachmentPoints()[0].getSwitchDPID(),
 						dstDevice.getAttachmentPoints()[0].getSwitchDPID());
@@ -368,9 +373,9 @@ public class IcnEngine extends IcnForwarding {
 						.getSwitchDPID(), dstDevice.getAttachmentPoints()[0]
 						.getPort()));
 				r.setPath(path);
-				pushRoute(r, m, cookie,  OFFlowModCommand.ADD);
+				pushRoute(r, m, cookie, OFFlowModCommand.ADD);
 			}
-		} 
+		}
 
 	}
 

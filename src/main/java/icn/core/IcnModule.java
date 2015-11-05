@@ -3,6 +3,7 @@ package icn.core;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import net.floodlightcontroller.core.FloodlightContext;
@@ -50,7 +51,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public IOFSwitchService switchService = null;
 	public IRoutingService routingService = null;
 	public ITopologyService topologyService = null;
-	public IDeviceService deviceService = null;
+	public static IDeviceService deviceService = null;
 	public IMultiPathRoutingService mpathRoutingService = null;
 
 	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
@@ -93,10 +94,6 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		mpathRoutingService = context
 				.getServiceImpl(IMultiPathRoutingService.class);
 		logger = LoggerFactory.getLogger(IcnModule.class);
-		
-		
-
-		
 
 	}
 
@@ -111,22 +108,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		IcnEngine.getInstance().setDeviceService(this.deviceService);
 		IcnEngine.getInstance().setSwitchService(this.switchService);
 		IcnEngine.getInstance().setMpathRoutingService(mpathRoutingService);
-		
-		for (ContentServer cs : Utils.getContentServersInfo()) {
-			Long deviceKey = deviceService.getDeviceKeyCounter()
-					.getAndIncrement();
-			Entity entity = new Entity(cs.getMacAddress(), null,
-					cs.getIpAddr(), IPv6Address.NONE, cs.getDpId(), cs.getSwitchPort(),
-					new Date());
-			deviceService.getDeviceMap().put(
-					deviceKey,
-					new Device((DeviceManagerImpl) deviceService, deviceKey,
-							entity, new DefaultEntityClassifier()
-									.classifyEntity(entity)));
-			//deviceService.getDeviceMap().get(deviceKey).
-			for(IDevice device : deviceService.getAllDevices())
-				logger.info("Device: " + device.toString());
-		}
+
 	}
 
 	@Override
@@ -162,11 +144,9 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		if (eth.getEtherType().equals(EthType.ARP)) {
 			ARP arp = (ARP) eth.getPayload();
 			if (arp.getTargetProtocolAddress().equals(VIP))
-				OFUtils.pushARP(sw, eth, msg);
-			else if (eth.isBroadcast() || eth.isMulticast())
-				IcnEngine.getInstance().flood(sw, eth, msg);
-			// else
-			// IcnEngine.getInstance().forward(sw, eth, msg, cntx);
+				OFUtils.pushARP(sw, eth, msg, IcnModule.VMAC);
+			else 
+				OFUtils.pushARP(sw, eth, msg, Utils.findMacByIP(arp.getTargetProtocolAddress()));
 
 		}
 
@@ -186,9 +166,11 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public static class SwitchListener implements IOFSwitchListener {
 
 		private IOFSwitchService switchService;
+		private List<DatapathId> activeCS;
 
 		public SwitchListener(IOFSwitchService switchService) {
 			this.switchService = switchService;
+			activeCS = new ArrayList<DatapathId>();
 		}
 
 		@Override
@@ -205,6 +187,28 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		public void switchActivated(DatapathId switchId) {
 			// OFUtils.insertHTTPDpiFlow(switchService.getActiveSwitch(switchId));
 			IcnModule.logger.info("Activated: " + switchId);
+
+			if (switchService.getAllSwitchDpids().containsAll(
+					Utils.getCSDatapathIds())) {
+				for (ContentServer cs : Utils.getContentServersInfo()) {
+					if (!activeCS.contains(cs.getDpId())) {
+						Long deviceKey = deviceService.getDeviceKeyCounter()
+								.getAndIncrement();
+						Entity entity = new Entity(cs.getMacAddress(), null,
+								cs.getIpAddr(), IPv6Address.NONE, cs.getDpId(),
+								cs.getSwitchPort(), new Date());
+						deviceService.getDeviceMap().put(
+								deviceKey,
+								new Device((DeviceManagerImpl) deviceService,
+										deviceKey, entity,
+										new DefaultEntityClassifier()
+												.classifyEntity(entity)));
+						activeCS.add(cs.getDpId());
+						for (IDevice device : deviceService.getAllDevices())
+							logger.info("Device: " + device.toString());
+					}
+				}
+			}
 		}
 
 		@Override

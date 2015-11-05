@@ -3,6 +3,7 @@ package icn.core;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -20,6 +21,8 @@ import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.forwarding.Forwarding;
 
 public class Utils {
+	
+	public static Properties arpTable = new Properties();
 
 	public static String getContentId(String payload) {
 	
@@ -69,6 +72,28 @@ public class Utils {
 		}
 		
 		return servers;
+		
+	}
+	
+	public static List<DatapathId> getCSDatapathIds() {
+		List<DatapathId> csDpIds = new ArrayList<DatapathId>();
+		for(ContentServer cs : Utils.getContentServersInfo()) 
+			csDpIds.add(cs.getDpId());
+		
+		return csDpIds;
+	}
+
+	public static MacAddress findMacByIP(IPv4Address targetProtocolAddress) {
+		
+		for(ContentServer cs : getContentServersInfo())
+			if(cs.getIpAddr().equals(targetProtocolAddress))
+				return cs.getMacAddress();
+		
+		IcnModule.logger.info("ARP TABLE: " + arpTable.toString());
+		if(arpTable.containsKey(targetProtocolAddress))
+			return MacAddress.of(arpTable.getProperty(targetProtocolAddress.toString()));
+		
+		return null;
 		
 	}
 

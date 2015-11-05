@@ -138,8 +138,8 @@ public class IcnEngine extends IcnForwarding {
 		for (IDevice device : deviceService.getAllDevices()) {
 			IcnModule.logger
 					.info("Device MAC: " + device.getMACAddressString());
-			IcnModule.logger.info("AP: "
-					+ device.getAttachmentPoints()[0].toString());
+//			IcnModule.logger.info("AP: "
+//					+ device.getAttachmentPoints()[0].toString());
 			IcnModule.logger.info("Device: \n" + device.toString());
 			if (device.getIPv4Addresses()[0].equals(IPv4Address.of(srcIp)))
 				srcDevice = device;

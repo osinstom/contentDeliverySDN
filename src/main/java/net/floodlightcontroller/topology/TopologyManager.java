@@ -379,7 +379,6 @@ public class TopologyManager implements IFloodlightModule, ITopologyService, IRo
 
 	@Override
 	public boolean isAttachmentPointPort(DatapathId switchid, OFPort port) {
-		IcnModule.logger.info("isAP in TopologyManager");
 		return isAttachmentPointPort(switchid, port, true);
 	}
 
@@ -391,22 +390,22 @@ public class TopologyManager implements IFloodlightModule, ITopologyService, IRo
 		// a link is found through it or not.
 		if (linkDiscoveryService.isTunnelPort(switchid, port))
 			return false;
-		IcnModule.logger.info("After tunnelPOrt");
+		
 		TopologyInstance ti = getCurrentInstance(tunnelEnabled);
 
 		// if the port is not attachment point port according to
 		// topology instance, then return false
 		if (ti.isAttachmentPointPort(switchid, port) == false)
 			return false;
-		IcnModule.logger.info("Acter TopoIns isAP");
+		
 		// Check whether the port is a physical port. We should not learn
 		// attachment points on "special" ports.
 		if ((port.getShortPortNumber() & 0xff00) == 0xff00 && port.getShortPortNumber() != (short)0xfffe) return false;
-		IcnModule.logger.info("AFTER SHORT");
+		
 		// Make sure that the port is enabled.
 		IOFSwitch sw = switchService.getActiveSwitch(switchid);
 		if (sw == null) return false;
-		IcnModule.logger.info("SW AFTER");
+		
 		return (sw.portEnabled(port));
 	}
 

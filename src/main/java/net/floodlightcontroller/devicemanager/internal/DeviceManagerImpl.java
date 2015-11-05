@@ -1273,7 +1273,6 @@ public class DeviceManagerImpl implements IDeviceService, IOFMessageListener, IT
 			OFPort switchPort) {
 		if (topology.isAttachmentPointPort(switchDPID, switchPort) == false)
 			return false;
-		IcnModule.logger.info("after topologyManager");
 		if (suppressAPs.contains(new SwitchPort(switchDPID, switchPort)))
 			return false;
 

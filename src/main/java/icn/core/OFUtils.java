@@ -240,7 +240,7 @@ public class OFUtils {
 		byte[] tcpAck = generateTCPResponse(eth, ipv4, tcp, ACK_FLAG, null);
 		sendPacketOut(sw, inPort, tcpAck);
 		
-		IcnEngine.getInstance().prepareRoute(srcIp, dstUrl.substring(0, dstUrl.indexOf("/")), tcp.getSourcePort(), tcp.getDestinationPort());
+		IcnEngine.getInstance().prepareRoute(srcIp, dstUrl.substring(0, dstUrl.indexOf(":")), tcp.getSourcePort(), tcp.getDestinationPort());
 
 		byte[] httpRedirect = generateTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG,
 				l7);

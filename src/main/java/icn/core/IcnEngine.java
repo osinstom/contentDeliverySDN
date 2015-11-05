@@ -123,7 +123,7 @@ public class IcnEngine extends IcnForwarding {
 
 		// HERE ICN ENGINE LOGIC
 		if (contentId.equals("abc123"))
-			return "10.0.0.2/Files/abc123.txt";
+			return "10.0.0.2:81/Files/abc123.txt";
 		else if (contentId.equals("index"))
 			return "10.0.0.2/Files/index.html";
 

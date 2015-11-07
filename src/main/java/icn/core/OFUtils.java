@@ -20,12 +20,15 @@ import org.projectfloodlight.openflow.protocol.OFFlowAdd;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFPacketOut;
+import org.projectfloodlight.openflow.protocol.OFPortDesc;
 import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
+import org.projectfloodlight.openflow.protocol.match.MatchFields;
 import org.projectfloodlight.openflow.types.ArpOpcode;
 import org.projectfloodlight.openflow.types.EthType;
+import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.OFBufferId;
@@ -110,7 +113,6 @@ public class OFUtils {
 
 	public static void insertHTTPDpiFlow(IOFSwitch sw) {
 
-		IcnModule.logger.info("Inserting FLOW MOD");
 		OFFactory ofFactory = sw.getOFFactory();
 
 		OFAction action = ofFactory.actions().output(OFPort.CONTROLLER,
@@ -126,19 +128,15 @@ public class OFUtils {
 						ofFactory
 								.buildMatch()
 								.setExact(MatchField.IN_PORT, OFPort.ANY)
-								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
 								.setExact(MatchField.ETH_DST, IcnModule.VMAC)
-								.setExact(MatchField.IPV4_DST, IcnModule.VIP)
-								.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
-								.setExact(MatchField.TCP_DST,
-										TransportPort.of(80)).build())
-				.setCookie(U64.of(1L << 58))
-				//.setPriority(FlowModUtils.PRIORITY_HIGH)
+								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+								.setExact(MatchField.IPV4_DST, IcnModule.VIP).build())
+//				/.setCookie(U64.of(1L << 58))
 				.build();
 
 		sw.write(httpGetFlow);
 
-		IcnModule.logger.info("FLOW MOD added to switch " + sw.getId());
+		IcnModule.logger.info("HTTP FLOW MOD added to switch " + sw.getId());
 	}
 
 	public static void sendSynAck(IOFSwitch sw, OFMessage msg, IPv4 ipv4,
@@ -355,6 +353,35 @@ public class OFUtils {
 				l7);
 		sendPacketOut(sw, inPort, http404);
 		
+	}
+
+	public static void insertARPFlow(IOFSwitch sw) {
+		
+		OFFactory ofFactory = sw.getOFFactory();
+		List<OFAction> actions = new ArrayList<OFAction>();
+		for(OFPortDesc portDesc : sw.getPorts())
+		{
+			OFAction action = ofFactory.actions().output(portDesc.getPortNo(),
+					0xffFFffFF);
+			actions.add(action);
+		}
+
+		OFFlowAdd arpFlow = ofFactory
+				.buildFlowAdd()
+				.setActions(actions)
+				.setBufferId(OFBufferId.NO_BUFFER)
+				.setMatch(
+						ofFactory
+								.buildMatch()
+								.setExact(MatchField.IN_PORT, OFPort.ANY)
+								.setExact(MatchField.ETH_DST, MacAddress.of("ff:ff:ff:ff:ff:ff"))
+								.setExact(MatchField.ETH_TYPE, EthType.ARP).build())
+				//.setCookie(U64.of(1L << 58))
+				.setPriority(FlowModUtils.PRIORITY_MED_HIGH)
+				.build();
+
+		sw.write(arpFlow);
+		IcnModule.logger.info("ARP FLOW INSTALLED");
 	}
 
 }

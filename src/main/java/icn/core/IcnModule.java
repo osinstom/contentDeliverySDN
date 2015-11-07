@@ -55,7 +55,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public IMultiPathRoutingService mpathRoutingService = null;
 
 	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
-	protected final static MacAddress VMAC = MacAddress.of("00:00:00:00:00:10");
+	protected final static MacAddress VMAC = MacAddress.of("99:99:99:99:99:99");
 
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
@@ -101,6 +101,9 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public void startUp(FloodlightModuleContext context)
 			throws FloodlightModuleException {
 		floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
+	    floodlightProvider.addOFMessageListener(OFType.STATS_REPLY, new
+		 StatsListener());
+		
 		switchService.addOFSwitchListener(new SwitchListener(switchService));
 
 		IcnEngine.getInstance().setTopologyService(this.topologyService);
@@ -145,8 +148,6 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 			ARP arp = (ARP) eth.getPayload();
 			if (arp.getTargetProtocolAddress().equals(VIP))
 				OFUtils.pushARP(sw, eth, msg, IcnModule.VMAC);
-			else 
-				OFUtils.pushARP(sw, eth, msg, Utils.findMacByIP(arp.getTargetProtocolAddress()));
 
 		}
 
@@ -163,63 +164,5 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		return Command.CONTINUE;
 	}
 
-	public static class SwitchListener implements IOFSwitchListener {
-
-		private IOFSwitchService switchService;
-		private List<DatapathId> activeCS;
-
-		public SwitchListener(IOFSwitchService switchService) {
-			this.switchService = switchService;
-			activeCS = new ArrayList<DatapathId>();
-		}
-
-		@Override
-		public void switchAdded(DatapathId switchId) {
-			IcnModule.logger.info("Added switch: " + switchId);
-			OFUtils.insertHTTPDpiFlow(switchService.getSwitch(switchId));
-		}
-
-		@Override
-		public void switchRemoved(DatapathId switchId) {
-		}
-
-		@Override
-		public void switchActivated(DatapathId switchId) {
-			// OFUtils.insertHTTPDpiFlow(switchService.getActiveSwitch(switchId));
-			IcnModule.logger.info("Activated: " + switchId);
-
-			if (switchService.getAllSwitchDpids().containsAll(
-					Utils.getCSDatapathIds())) {
-				for (ContentServer cs : Utils.getContentServersInfo()) {
-					if (!activeCS.contains(cs.getDpId())) {
-						Long deviceKey = deviceService.getDeviceKeyCounter()
-								.getAndIncrement();
-						Entity entity = new Entity(cs.getMacAddress(), null,
-								cs.getIpAddr(), IPv6Address.NONE, cs.getDpId(),
-								cs.getSwitchPort(), new Date());
-						deviceService.getDeviceMap().put(
-								deviceKey,
-								new Device((DeviceManagerImpl) deviceService,
-										deviceKey, entity,
-										new DefaultEntityClassifier()
-												.classifyEntity(entity)));
-						activeCS.add(cs.getDpId());
-						for (IDevice device : deviceService.getAllDevices())
-							logger.info("Device: " + device.toString());
-					}
-				}
-			}
-		}
-
-		@Override
-		public void switchPortChanged(DatapathId switchId, OFPortDesc port,
-				PortChangeType type) {
-		}
-
-		@Override
-		public void switchChanged(DatapathId switchId) {
-		}
-
-	}
 
 }

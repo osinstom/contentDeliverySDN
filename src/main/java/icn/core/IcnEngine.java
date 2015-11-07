@@ -123,7 +123,7 @@ public class IcnEngine extends IcnForwarding {
 
 		// HERE ICN ENGINE LOGIC
 		if (contentId.equals("abc123"))
-			return "10.0.0.2:81/Files/abc123.txt";
+			return "10.0.0.2:80/Files/abc123.txt";
 		else if (contentId.equals("index"))
 			return "10.0.0.2/Files/index.html";
 
@@ -139,8 +139,6 @@ public class IcnEngine extends IcnForwarding {
 		for (IDevice device : deviceService.getAllDevices()) {
 			IcnModule.logger
 					.info("Device MAC: " + device.getMACAddressString());
-			// IcnModule.logger.info("AP: "
-			// + device.getAttachmentPoints()[0].toString());
 			IcnModule.logger.info("Device: \n" + device.toString());
 			if (device.getIPv4Addresses().length != 0
 					&& device.getIPv4Addresses()[0] != null) {
@@ -151,6 +149,8 @@ public class IcnEngine extends IcnForwarding {
 					dstDevice = device;
 			}
 		}
+		IcnModule.logger.info("SRC DEVICE: " + srcDevice.toString());
+		IcnModule.logger.info("DST DEVICE: " + dstDevice.toString());
 
 		prepareRoute(srcDevice, dstDevice);
 

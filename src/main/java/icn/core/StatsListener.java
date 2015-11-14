@@ -10,6 +10,10 @@ import net.floodlightcontroller.core.IOFMessageListener;
 import net.floodlightcontroller.core.IOFSwitch;
 
 public class StatsListener implements IOFMessageListener{
+	
+	public StatsListener() {
+		
+	}
 
 	@Override
 	public String getName() {

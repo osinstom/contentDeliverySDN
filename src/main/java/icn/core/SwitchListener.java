@@ -31,7 +31,6 @@ public class SwitchListener implements IOFSwitchListener {
 	public void switchAdded(DatapathId switchId) {
 		IcnModule.logger.info("Added switch: " + switchId);
 		OFUtils.insertHTTPDpiFlow(switchService.getSwitch(switchId));
-		OFUtils.insertARPFlow(switchService.getSwitch(switchId));
 	}
 
 	@Override
@@ -40,7 +39,6 @@ public class SwitchListener implements IOFSwitchListener {
 
 	@Override
 	public void switchActivated(DatapathId switchId) {
-		// OFUtils.insertHTTPDpiFlow(switchService.getActiveSwitch(switchId));
 		IcnModule.logger.info("Activated: " + switchId);
 		discoverContentServer(switchId);
 	}

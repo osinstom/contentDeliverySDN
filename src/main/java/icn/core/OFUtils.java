@@ -24,6 +24,7 @@ import org.projectfloodlight.openflow.protocol.OFPortDesc;
 import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.match.Match;
+import org.projectfloodlight.openflow.protocol.match.Match.Builder;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.protocol.match.MatchFields;
 import org.projectfloodlight.openflow.types.ArpOpcode;
@@ -114,7 +115,13 @@ public class OFUtils {
 	public static void insertHTTPDpiFlow(IOFSwitch sw) {
 
 		OFFactory ofFactory = sw.getOFFactory();
-
+		
+		Builder match = ofFactory
+		.buildMatch();
+		
+//		for(OFPortDesc port : sw.getPorts())
+//			match.setExact(MatchField.IN_PORT, port.getPortNo());
+		
 		OFAction action = ofFactory.actions().output(OFPort.CONTROLLER,
 				0xffFFffFF);
 		List<OFAction> actions = new ArrayList<OFAction>();
@@ -124,14 +131,12 @@ public class OFUtils {
 				.buildFlowAdd()
 				.setActions(actions)
 				.setBufferId(OFBufferId.NO_BUFFER)
-				.setMatch(
-						ofFactory
-								.buildMatch()
-								.setExact(MatchField.IN_PORT, OFPort.ANY)
-								.setExact(MatchField.ETH_DST, IcnModule.VMAC)
+				.setMatch(match
+//								.setExact(MatchField.IN_PORT, OFPort.of(1))
+//								.setExact(MatchField.IN_PORT, OFPort.ANY)
 								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
 								.setExact(MatchField.IPV4_DST, IcnModule.VIP).build())
-//				/.setCookie(U64.of(1L << 58))
+				.setPriority(FlowModUtils.PRIORITY_VERY_HIGH)
 				.build();
 
 		sw.write(httpGetFlow);
@@ -359,13 +364,21 @@ public class OFUtils {
 		
 		OFFactory ofFactory = sw.getOFFactory();
 		List<OFAction> actions = new ArrayList<OFAction>();
-		for(OFPortDesc portDesc : sw.getPorts())
-		{
-			OFAction action = ofFactory.actions().output(portDesc.getPortNo(),
-					0xffFFffFF);
-			actions.add(action);
-		}
-
+//		for(OFPortDesc portDesc : sw.getPorts())
+//		{
+//			OFAction action = ofFactory.actions().output(portDesc.getPortNo(),
+//					0xffFFffFF);
+//			actions.add(action);
+//		}
+		
+		for(OFPort port : Collections.singletonList(OFPort.FLOOD))
+			IcnModule.logger.info("Flood port: " + port.getPortNumber());
+			
+		
+		OFAction action = ofFactory.actions().output(OFPort.FLOOD,
+				0xffFFffFF);
+		actions.add(action);
+		
 		OFFlowAdd arpFlow = ofFactory
 				.buildFlowAdd()
 				.setActions(actions)
@@ -373,11 +386,10 @@ public class OFUtils {
 				.setMatch(
 						ofFactory
 								.buildMatch()
-								.setExact(MatchField.IN_PORT, OFPort.ANY)
-								.setExact(MatchField.ETH_DST, MacAddress.of("ff:ff:ff:ff:ff:ff"))
-								.setExact(MatchField.ETH_TYPE, EthType.ARP).build())
-				//.setCookie(U64.of(1L << 58))
-				.setPriority(FlowModUtils.PRIORITY_MED_HIGH)
+								.setExact(MatchField.ETH_TYPE, EthType.ARP)
+								.setExact(MatchField.ARP_OP, ArpOpcode.REQUEST)
+								.build())
+				.setPriority(FlowModUtils.PRIORITY_VERY_HIGH)
 				.build();
 
 		sw.write(arpFlow);

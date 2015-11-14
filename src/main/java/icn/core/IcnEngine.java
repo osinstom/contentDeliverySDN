@@ -83,6 +83,7 @@ public class IcnEngine extends IcnForwarding {
 
 			if (contentSourceUrl != null) {
 				updateContentStats(contentId, IPv4Address.of(srcIp));
+				
 				OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 						contentSourceUrl);
 			} else
@@ -94,7 +95,7 @@ public class IcnEngine extends IcnForwarding {
 				&& tcp.getDestinationPort().equals(TransportPort.of(80))) {
 			OFUtils.sendSynAck(sw, msg, ipv4, eth, tcp);
 		}
-
+		
 	}
 
 	private void updateContentStats(String contentId, IPv4Address srcIp) {

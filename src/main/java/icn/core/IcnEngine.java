@@ -1,5 +1,7 @@
 package icn.core;
 
+import icn.core.ContentDesc.Location;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 import java.util.Set;
 
 import net.floodlightcontroller.core.FloodlightContext;
@@ -83,7 +86,10 @@ public class IcnEngine extends IcnForwarding {
 
 			if (contentSourceUrl != null) {
 				updateContentStats(contentId, IPv4Address.of(srcIp));
-				
+
+			    int flowId = getFlowId();
+			    contentSourceUrl = contentSourceUrl.replace("$flowId$", Integer.toString(flowId));
+				MonitoringSystem.flows.add(new ContentFlow(flowId));
 				OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 						contentSourceUrl);
 			} else
@@ -95,7 +101,22 @@ public class IcnEngine extends IcnForwarding {
 				&& tcp.getDestinationPort().equals(TransportPort.of(80))) {
 			OFUtils.sendSynAck(sw, msg, ipv4, eth, tcp);
 		}
-		
+
+	}
+
+	private Integer getFlowId() {
+
+		int flowId = 0;
+		do {
+			
+			Random rn = new Random();
+			int range = 65535 - 49152 + 1;
+			flowId =  rn.nextInt(range) + 49152;
+			IcnModule.logger.info("FlowId: " + flowId);
+		} while (flowId == 0
+				&& MonitoringSystem.getInstance().getFlowIds()
+						.contains(flowId));
+		return flowId;
 	}
 
 	private void updateContentStats(String contentId, IPv4Address srcIp) {
@@ -122,13 +143,31 @@ public class IcnEngine extends IcnForwarding {
 
 	private String getContentSource(String contentId) {
 
-		// HERE ICN ENGINE LOGIC
-		if (contentId.equals("abc123"))
-			return "10.0.0.2:80/Files/abc123.txt";
-		else if (contentId.equals("index"))
-			return "10.0.0.2/Files/index.html";
+		ContentDesc contentDesc = Utils.getContentDesc(contentId);
+		IcnModule.logger.info(contentDesc.toString());
+		Location bestSource = null;
+		if (contentDesc != null)
+			bestSource = calculateBestSource(contentDesc.getLocations());
+		else
+			return null;
+
+		return bestSource.getIpAddr() + ":$flowId$/ "
+				+ bestSource.getLocalPath();
+
+	}
+
+	private Location calculateBestSource(List<Location> locations) {
+
+		if (locations.size() == 1)
+			return locations.get(0);
+		else {
+
+			// calculating best source from all locations
+
+		}
 
 		return null;
+
 	}
 
 	public void prepareRoute(String srcIp, String dstIp, TransportPort srcPort,

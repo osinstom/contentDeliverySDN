@@ -78,28 +78,44 @@ public class IcnEngine extends IcnForwarding {
 
 		String payload = new String(((Data) tcp.getPayload()).serialize());
 		IcnModule.logger.info(payload);
-		if (payload.contains("HTTP") && payload.contains("GET")) { // HTTP GET =
-																	// ContentRequest
-			String contentId = Utils.getContentId(payload);
-			String contentSourceUrl = getContentSource(contentId);
-			String srcIp = ipv4.getSourceAddress().toString();
 
-			if (contentSourceUrl != null) {
-				updateContentStats(contentId, IPv4Address.of(srcIp));
+		if (ipv4.getDestinationAddress().equals(IcnModule.VIP)) {
+			if (payload.contains("HTTP") && payload.contains("GET")) { // HTTP
+																		// GET =
+																		// ContentRequest
+				String contentId = Utils.getContentId(payload);
+				String contentSourceUrl = getContentSource(contentId);
+				String srcIp = ipv4.getSourceAddress().toString();
 
-			    int flowId = getFlowId();
-			    contentSourceUrl = contentSourceUrl.replace("$flowId$", Integer.toString(flowId));
-				MonitoringSystem.flows.add(new ContentFlow(flowId));
-				OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
-						contentSourceUrl);
-			} else
-				OFUtils.returnHttp404(sw, msg, ipv4, eth, tcp, srcIp);
+				if (contentSourceUrl != null) {
+					// updateContentStats(contentId, IPv4Address.of(srcIp));
 
-		} else if (tcp.getFlags() == 2 // If TCP SYN to Virtual IP is received
-										// on port 80
-				&& ipv4.getDestinationAddress().equals(IcnModule.VIP)
-				&& tcp.getDestinationPort().equals(TransportPort.of(80))) {
-			OFUtils.sendSynAck(sw, msg, ipv4, eth, tcp);
+					int flowId = getFlowId();
+					contentSourceUrl = contentSourceUrl.replace("$flowId$",
+							Integer.toString(flowId));
+					MonitoringSystem.flows.add(new ContentFlow(flowId));
+					OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
+							contentSourceUrl);
+				} else
+					OFUtils.returnHttp404(sw, msg, ipv4, eth, tcp, srcIp);
+
+			} else if (tcp.getFlags() == 2 // If TCP SYN to Virtual IP is
+											// received
+											// on port 80
+					&& ipv4.getDestinationAddress().equals(IcnModule.VIP)
+					&& tcp.getDestinationPort().equals(TransportPort.of(80))) {
+				OFUtils.sendSynAck(sw, msg, ipv4, eth, tcp);
+			}
+		} else {
+
+			if (tcp.getFlags() == 2
+					&& MonitoringSystem.getInstance().getFlowIds()
+							.contains(tcp.getDestinationPort().getPort())) {
+				
+				IcnModule.logger.info("Route to dest request");
+				
+			}
+
 		}
 
 	}
@@ -108,14 +124,13 @@ public class IcnEngine extends IcnForwarding {
 
 		int flowId = 0;
 		do {
-			
+
 			Random rn = new Random();
 			int range = 65535 - 49152 + 1;
-			flowId =  rn.nextInt(range) + 49152;
+			flowId = rn.nextInt(range) + 49152;
 			IcnModule.logger.info("FlowId: " + flowId);
 		} while (flowId == 0
-				&& MonitoringSystem.getInstance().getFlowIds()
-						.contains(flowId));
+				&& MonitoringSystem.getInstance().getFlowIds().contains(flowId));
 		return flowId;
 	}
 

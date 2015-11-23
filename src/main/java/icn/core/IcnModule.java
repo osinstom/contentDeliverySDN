@@ -136,13 +136,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
-		IcnModule.logger.info("Packet type: " + eth.getEtherType());
-		IcnModule.logger.info("SRC Device: "
-				+ IDeviceService.fcStore.get(cntx,
-						IDeviceService.CONTEXT_SRC_DEVICE));
-		IcnModule.logger.info("DST Device: "
-				+ IDeviceService.fcStore.get(cntx,
-						IDeviceService.CONTEXT_DST_DEVICE));
+		
 
 		if (eth.getEtherType().equals(EthType.ARP)) {
 			ARP arp = (ARP) eth.getPayload();
@@ -154,6 +148,13 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 		if (eth.getEtherType().equals(EthType.IPv4)) {
 			IPv4 ipv4 = (IPv4) eth.getPayload();
+			IcnModule.logger.info("Packet type: " + eth.getEtherType());
+			IcnModule.logger.info("SRC Device: "
+					+ IDeviceService.fcStore.get(cntx,
+							IDeviceService.CONTEXT_SRC_DEVICE));
+			IcnModule.logger.info("DST Device: "
+					+ IDeviceService.fcStore.get(cntx,
+							IDeviceService.CONTEXT_DST_DEVICE));
 
 			if (ipv4.getProtocol().equals(IpProtocol.TCP)) {
 

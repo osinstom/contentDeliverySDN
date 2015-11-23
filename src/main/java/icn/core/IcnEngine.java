@@ -88,16 +88,23 @@ public class IcnEngine extends IcnForwarding {
 				String srcIp = ipv4.getSourceAddress().toString();
 
 				if (contentSourceUrl != null) {
-					// updateContentStats(contentId, IPv4Address.of(srcIp));
 
 					int flowId = getFlowId();
 					contentSourceUrl = contentSourceUrl.replace("$flowId$",
 							Integer.toString(flowId));
+
+					prepareRoute(
+							srcIp,
+							contentSourceUrl.substring(0,
+									contentSourceUrl.indexOf(":")),
+							TransportPort.of(flowId));
+
 					MonitoringSystem.flows.add(new ContentFlow(flowId));
 					OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 							contentSourceUrl);
 				} else
-					OFUtils.returnHttp404(sw, msg, ipv4, eth, tcp, srcIp);
+					OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
+							OFUtils.HTTP_NOTFOUND);
 
 			} else if (tcp.getFlags() == 2 // If TCP SYN to Virtual IP is
 											// received
@@ -108,12 +115,15 @@ public class IcnEngine extends IcnForwarding {
 			}
 		} else {
 
-			if (tcp.getFlags() == 2
-					&& MonitoringSystem.getInstance().getFlowIds()
-							.contains(tcp.getDestinationPort().getPort())) {
+			if (MonitoringSystem.getInstance().getFlowIds()
+					.contains(tcp.getDestinationPort().getPort())) {
+
+				IcnModule.logger.info("Route to dest request: " + tcp.getSourcePort() + " " + tcp.getDestinationPort());
 				
-				IcnModule.logger.info("Route to dest request");
-				
+
+			} else {
+				OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
+						OFUtils.HTTP_BADREQUEST);
 			}
 
 		}
@@ -185,8 +195,7 @@ public class IcnEngine extends IcnForwarding {
 
 	}
 
-	public void prepareRoute(String srcIp, String dstIp, TransportPort srcPort,
-			TransportPort dstPort) {
+	public void prepareRoute(String srcIp, String dstIp, TransportPort srcPort) {
 
 		IDevice srcDevice = null;
 		IDevice dstDevice = null;
@@ -207,7 +216,7 @@ public class IcnEngine extends IcnForwarding {
 		IcnModule.logger.info("SRC DEVICE: " + srcDevice.toString());
 		IcnModule.logger.info("DST DEVICE: " + dstDevice.toString());
 
-		prepareRoute(srcDevice, dstDevice);
+		prepareRoute(srcDevice, dstDevice, srcPort);
 
 	}
 
@@ -221,7 +230,8 @@ public class IcnEngine extends IcnForwarding {
 		// multiRoute.getRoute()
 	}
 
-	private void prepareRoute(IDevice srcDevice, IDevice dstDevice) {
+	private void prepareRoute(IDevice srcDevice, IDevice dstDevice,
+			TransportPort srcPort) {
 
 		DatapathId srcSwId = srcDevice.getAttachmentPoints()[0].getSwitchDPID();
 		DatapathId dstSwId = dstDevice.getAttachmentPoints()[0].getSwitchDPID();
@@ -246,6 +256,7 @@ public class IcnEngine extends IcnForwarding {
 						srcDevice.getAttachmentPoints()[0].getPort())
 				.setExact(MatchField.IPV4_SRC, srcDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.IPV4_DST, dstDevice.getIPv4Addresses()[0])
+				.setExact(MatchField.TCP_SRC, srcPort)
 				.setExact(MatchField.TCP_DST, TransportPort.of(80));
 
 		Match.Builder reverseMatch = OFFactories
@@ -256,7 +267,9 @@ public class IcnEngine extends IcnForwarding {
 				.setExact(MatchField.IN_PORT,
 						dstDevice.getAttachmentPoints()[0].getPort())
 				.setExact(MatchField.IPV4_SRC, dstDevice.getIPv4Addresses()[0])
-				.setExact(MatchField.IPV4_DST, srcDevice.getIPv4Addresses()[0]);
+				.setExact(MatchField.IPV4_DST, srcDevice.getIPv4Addresses()[0])
+				.setExact(MatchField.TCP_DST, srcPort)
+				.setExact(MatchField.TCP_SRC, TransportPort.of(80));
 
 		U64 cookie = AppCookie.makeCookie(2, 0);
 
@@ -305,8 +318,7 @@ public class IcnEngine extends IcnForwarding {
 				.getSwitchBroadcastPorts(sw.getId());
 
 		if (broadcastPorts == null) {
-			IcnModule.logger
-					.debug("BroadcastPorts returned null. Assuming single switch w/no links.");
+			
 			/* Must be a single-switch w/no links */
 			broadcastPorts = Collections.singleton(OFPort.FLOOD);
 		}
@@ -323,10 +335,6 @@ public class IcnEngine extends IcnForwarding {
 		pob.setBufferId(OFBufferId.NO_BUFFER);
 		pob.setInPort(inPort);
 		pob.setData(pi.getData());
-
-		IcnModule.logger.info(
-				"Writing flood PacketOut switch={} packet-in={} packet-out={}",
-				new Object[] { sw, pi, pob.build() });
 
 		sw.write(pob.build());
 

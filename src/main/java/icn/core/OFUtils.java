@@ -13,6 +13,7 @@ import net.floodlightcontroller.packet.Data;
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.TCP;
+import net.floodlightcontroller.perfmon.PktInProcessingTime;
 import net.floodlightcontroller.util.FlowModUtils;
 
 import org.projectfloodlight.openflow.protocol.OFFactory;
@@ -23,10 +24,12 @@ import org.projectfloodlight.openflow.protocol.OFPacketOut;
 import org.projectfloodlight.openflow.protocol.OFPortDesc;
 import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
+import org.projectfloodlight.openflow.protocol.action.OFActionSetField;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.Match.Builder;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.protocol.match.MatchFields;
+import org.projectfloodlight.openflow.protocol.oxm.OFOxms;
 import org.projectfloodlight.openflow.types.ArpOpcode;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IPv4Address;
@@ -38,7 +41,7 @@ import org.projectfloodlight.openflow.types.TransportPort;
 import org.projectfloodlight.openflow.types.U64;
 
 public class OFUtils {
-	
+
 	public static final int HTTP_NOTFOUND = 404;
 	public static final int HTTP_BADREQUEST = 400;
 
@@ -62,7 +65,8 @@ public class OFUtils {
 	// (byte) 0x00, (byte) 0x5a, (byte) 0x2c, (byte) 0x6e
 	};
 
-	public static void pushARP(IOFSwitch sw, Ethernet eth, OFMessage msg, MacAddress mac) {
+	public static void pushARP(IOFSwitch sw, Ethernet eth, OFMessage msg,
+			MacAddress mac) {
 
 		OFPacketIn pi = (OFPacketIn) msg;
 
@@ -105,10 +109,12 @@ public class OFUtils {
 								.actions().output(inPort, 0xffFFffFF)))
 				.setInPort(OFPort.CONTROLLER).build();
 
-		if(!Utils.arpTable.containsKey(((ARP) eth.getPayload()).getSenderProtocolAddress().toString()))
-			Utils.arpTable.setProperty(((ARP) eth.getPayload()).getSenderProtocolAddress().toString(), ((ARP) eth.getPayload())
-				.getSenderHardwareAddress().toString());
-		
+		if (!Utils.arpTable.containsKey(((ARP) eth.getPayload())
+				.getSenderProtocolAddress().toString()))
+			Utils.arpTable.setProperty(((ARP) eth.getPayload())
+					.getSenderProtocolAddress().toString(), ((ARP) eth
+					.getPayload()).getSenderHardwareAddress().toString());
+
 		sw.write(po);
 
 		IcnModule.logger.info("ARP Response packet sent");
@@ -118,13 +124,12 @@ public class OFUtils {
 	public static void insertHTTPDpiFlow(IOFSwitch sw) {
 
 		OFFactory ofFactory = sw.getOFFactory();
-		
-		Builder match = ofFactory
-		.buildMatch();
-		
-//		for(OFPortDesc port : sw.getPorts())
-//			match.setExact(MatchField.IN_PORT, port.getPortNo());
-		
+
+		Builder match = ofFactory.buildMatch();
+
+		// for(OFPortDesc port : sw.getPorts())
+		// match.setExact(MatchField.IN_PORT, port.getPortNo());
+
 		OFAction action = ofFactory.actions().output(OFPort.CONTROLLER,
 				0xffFFffFF);
 		List<OFAction> actions = new ArrayList<OFAction>();
@@ -134,13 +139,14 @@ public class OFUtils {
 				.buildFlowAdd()
 				.setActions(actions)
 				.setBufferId(OFBufferId.NO_BUFFER)
-				.setMatch(match
-//								.setExact(MatchField.IN_PORT, OFPort.of(1))
-//								.setExact(MatchField.IN_PORT, OFPort.ANY)
-								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
-								.setExact(MatchField.IPV4_DST, IcnModule.VIP).build())
-				.setPriority(FlowModUtils.PRIORITY_VERY_HIGH)
-				.build();
+				.setMatch(
+						match
+						// .setExact(MatchField.IN_PORT, OFPort.of(1))
+						// .setExact(MatchField.IN_PORT, OFPort.ANY)
+						.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+								.setExact(MatchField.IPV4_DST, IcnModule.VIP)
+								.build())
+				.setPriority(FlowModUtils.PRIORITY_VERY_HIGH).build();
 
 		sw.write(httpGetFlow);
 
@@ -323,85 +329,179 @@ public class OFUtils {
 	public static void installRule(IOFSwitch sw, Match match,
 			OFPort outputPort, List<OFAction> actions) {
 
-		OFFlowAdd flowAdd = sw.getOFFactory().buildFlowAdd()
-				.setMatch(match)
-				.setOutPort(outputPort)
-				.setActions(actions)
-				.build();
+		OFFlowAdd flowAdd = sw.getOFFactory().buildFlowAdd().setMatch(match)
+				.setOutPort(outputPort).setActions(actions).build();
 
 		sw.write(flowAdd);
-		
+
 		IcnModule.logger.info("RULE INSTALLED: " + flowAdd.toString());
 
 	}
 
-	public static void returnHttpResponse(IOFSwitch sw, OFMessage msg, IPv4 ipv4,
-			Ethernet eth, TCP tcp, int responseCode) {
+	public static void returnHttpResponse(IOFSwitch sw, OFMessage msg,
+			IPv4 ipv4, Ethernet eth, TCP tcp, int responseCode) {
 		// TODO 400 response for bad ip address(!=10.0.99.99)
 		OFPacketIn pi = (OFPacketIn) msg;
 
 		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
 				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
-		
-		
+
 		StringBuilder builder = new StringBuilder();
-		if(responseCode==HTTP_NOTFOUND) {
+		if (responseCode == HTTP_NOTFOUND) {
 			builder.append("HTTP/1.1 404 Not Found\r\n");
 			builder.append("Connection: close\r\n");
-			
+
 			byte[] tcpAck = generateTCPResponse(eth, ipv4, tcp, ACK_FLAG, null);
 			sendPacketOut(sw, inPort, tcpAck);
-		} else if(responseCode==HTTP_BADREQUEST) {
+		} else if (responseCode == HTTP_BADREQUEST) {
 			builder.append("HTTP/1.1 400 Bad Request\r\n");
 			builder.append("Connection: close\r\n");
 		}
 		builder.append("\r\n");
-		
+
 		String httpHeader = builder.toString();
 		Data l7 = new Data();
 		l7.setData(httpHeader.getBytes());
 
-		
-		byte[] http = generateTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG,
-				l7);
+		byte[] http = generateTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG, l7);
 		sendPacketOut(sw, inPort, http);
-		
+
 	}
 
 	public static void insertARPFlow(IOFSwitch sw) {
-		
+
 		OFFactory ofFactory = sw.getOFFactory();
 		List<OFAction> actions = new ArrayList<OFAction>();
-//		for(OFPortDesc portDesc : sw.getPorts())
-//		{
-//			OFAction action = ofFactory.actions().output(portDesc.getPortNo(),
-//					0xffFFffFF);
-//			actions.add(action);
-//		}
-		
-		for(OFPort port : Collections.singletonList(OFPort.FLOOD))
-			IcnModule.logger.info("Flood port: " + port.getPortNumber());
-			
-		
-		OFAction action = ofFactory.actions().output(OFPort.FLOOD,
-				0xffFFffFF);
+		// for(OFPortDesc portDesc : sw.getPorts())
+		// {
+		// OFAction action = ofFactory.actions().output(portDesc.getPortNo(),
+		// 0xffFFffFF);
+		// actions.add(action);
+		// }
+
+		OFAction action = ofFactory.actions().output(OFPort.FLOOD, 0xffFFffFF);
 		actions.add(action);
-		
+
 		OFFlowAdd arpFlow = ofFactory
 				.buildFlowAdd()
 				.setActions(actions)
 				.setBufferId(OFBufferId.NO_BUFFER)
 				.setMatch(
-						ofFactory
-								.buildMatch()
+						ofFactory.buildMatch()
 								.setExact(MatchField.ETH_TYPE, EthType.ARP)
 								.setExact(MatchField.ARP_OP, ArpOpcode.REQUEST)
 								.build())
-				.setPriority(FlowModUtils.PRIORITY_VERY_HIGH)
-				.build();
+				.setPriority(FlowModUtils.PRIORITY_VERY_HIGH).build();
 
 		sw.write(arpFlow);
 		IcnModule.logger.info("ARP FLOW INSTALLED");
+	}
+
+	public static void setNatFlow(IOFSwitch sw, OFMessage msg, IPv4Address srcIp,
+			IPv4Address dstIp, TransportPort sourcePort,
+			TransportPort destinationPort) {
+		
+		OFPacketIn pi = (OFPacketIn) msg;
+
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
+				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+
+		OFFactory ofFactory = sw.getOFFactory();
+		List<OFAction> actions = new ArrayList<OFAction>();
+		OFOxms oxms = ofFactory.oxms();
+
+		OFActionSetField setTcpDst = ofFactory
+				.actions()
+				.buildSetField()
+				.setField(
+						oxms.buildTcpDst().setValue(TransportPort.of(80))
+								.build()).build();
+		actions.add(setTcpDst);
+
+		OFActionSetField setTcpSrc = ofFactory
+				.actions()
+				.buildSetField()
+				.setField(
+						oxms.buildTcpSrc().setValue(destinationPort)
+								.build()).build();
+		actions.add(setTcpSrc);
+		
+		OFPort output = null ;
+		OFPort revOutput = null;
+		
+		for(ContentFlow flow : MonitoringSystem.flows) {
+			if(flow.getFlowId() == destinationPort.getPort()) {
+				IcnModule.logger.info(flow.getRoute().toString());
+				output = flow.getRoute().get(1).getPortId();
+				revOutput = flow.getRoute().get(0).getPortId();
+			}
+		}
+		
+		actions.add(ofFactory.actions().output(output, 0xffFFffFF));
+
+		OFFlowAdd natFlow = ofFactory
+				.buildFlowAdd()
+				.setActions(actions)
+				.setBufferId(OFBufferId.NO_BUFFER)
+				.setMatch(
+						ofFactory.buildMatch()
+								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+								.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
+								.setExact(MatchField.IPV4_SRC, srcIp)
+								.setExact(MatchField.IPV4_DST, dstIp)
+								.setExact(MatchField.TCP_SRC, sourcePort)
+								.setExact(MatchField.TCP_DST, destinationPort)
+								.build())
+				.setPriority(1).build();
+
+		
+		ArrayList<OFMessage> messages = new ArrayList<OFMessage>();
+		messages.add(natFlow);
+		
+		List<OFAction> revActions = new ArrayList<OFAction>();
+		OFActionSetField setRevTcpDst = ofFactory
+				.actions()
+				.buildSetField()
+				.setField(
+						oxms.buildTcpDst().setValue(sourcePort)
+								.build()).build();
+		revActions.add(setRevTcpDst);
+
+		OFActionSetField setRevTcpSrc = ofFactory
+				.actions()
+				.buildSetField()
+				.setField(
+						oxms.buildTcpSrc().setValue(destinationPort)
+								.build()).build();
+		revActions.add(setRevTcpSrc);
+		
+		revActions.add(ofFactory.actions().output(revOutput, 0xffFFffFF));
+		
+		OFFlowAdd revNatFlow = ofFactory
+				.buildFlowAdd()
+				.setActions(revActions)
+				.setBufferId(OFBufferId.NO_BUFFER)
+				.setMatch(
+						ofFactory.buildMatch()
+								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+								.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
+								.setExact(MatchField.IPV4_SRC, dstIp)
+								.setExact(MatchField.IPV4_DST, srcIp)
+								.setExact(MatchField.TCP_SRC, TransportPort.of(80))
+								.setExact(MatchField.TCP_DST, destinationPort)
+								.build())
+				.setPriority(1).build();
+		messages.add(revNatFlow);
+		
+		OFPacketOut po = sw
+				.getOFFactory()
+				.buildPacketOut()
+				.setData(((OFPacketIn)msg).getData())
+				.setActions(actions)
+				.setInPort(inPort).build();
+
+		messages.add(po);
+		sw.write(messages);
 	}
 
 }

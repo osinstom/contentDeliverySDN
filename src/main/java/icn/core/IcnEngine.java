@@ -51,6 +51,8 @@ import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.TransportPort;
 import org.projectfloodlight.openflow.types.U64;
 
+import com.fasterxml.jackson.dataformat.yaml.snakeyaml.nodes.NodeTuple;
+
 public class IcnEngine extends IcnForwarding {
 
 	private HashMap<String, HashMap<IPv4Address, Integer>> contentRequestsStats = null;
@@ -92,14 +94,13 @@ public class IcnEngine extends IcnForwarding {
 					int flowId = getFlowId();
 					contentSourceUrl = contentSourceUrl.replace("$flowId$",
 							Integer.toString(flowId));
-
+					MonitoringSystem.flows.add(new ContentFlow(flowId));
 					prepareRoute(
 							srcIp,
 							contentSourceUrl.substring(0,
 									contentSourceUrl.indexOf(":")),
 							TransportPort.of(flowId));
 
-					MonitoringSystem.flows.add(new ContentFlow(flowId));
 					OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 							contentSourceUrl);
 				} else
@@ -114,12 +115,17 @@ public class IcnEngine extends IcnForwarding {
 				OFUtils.sendSynAck(sw, msg, ipv4, eth, tcp);
 			}
 		} else {
-
+			IcnModule.logger.info("Route to dest request: "
+					+ tcp.getSourcePort() + " " + tcp.getDestinationPort());
 			if (MonitoringSystem.getInstance().getFlowIds()
 					.contains(tcp.getDestinationPort().getPort())) {
 
-				IcnModule.logger.info("Route to dest request: " + tcp.getSourcePort() + " " + tcp.getDestinationPort());
-				
+				IcnModule.logger.info("Route to dest request: "
+						+ tcp.getSourcePort() + " " + tcp.getDestinationPort());
+
+				OFUtils.setNatFlow(sw, msg, ipv4.getSourceAddress(),
+						ipv4.getDestinationAddress(), tcp.getSourcePort(),
+						tcp.getDestinationPort());
 
 			} else {
 				OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
@@ -176,7 +182,7 @@ public class IcnEngine extends IcnForwarding {
 		else
 			return null;
 
-		return bestSource.getIpAddr() + ":$flowId$/ "
+		return bestSource.getIpAddr() + ":$flowId$/"
 				+ bestSource.getLocalPath();
 
 	}
@@ -236,8 +242,16 @@ public class IcnEngine extends IcnForwarding {
 		DatapathId srcSwId = srcDevice.getAttachmentPoints()[0].getSwitchDPID();
 		DatapathId dstSwId = dstDevice.getAttachmentPoints()[0].getSwitchDPID();
 
-		Route route = mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
-				.getRoute();
+		// Route route = mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
+		// .getRoute();
+
+		Route route = routingService.getRoute(srcSwId,
+				srcDevice.getAttachmentPoints()[0].getPort(), dstSwId,
+				dstDevice.getAttachmentPoints()[0].getPort(), null);
+
+//		IcnModule.logger.info("Routes:\n"
+//				+ mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
+//						.getRoutes());
 
 		if (route == null) {
 			route = new Route(
@@ -245,7 +259,16 @@ public class IcnEngine extends IcnForwarding {
 					dstDevice.getAttachmentPoints()[0].getSwitchDPID());
 		}
 
-		route = addClientAPs(route, srcDevice, dstDevice);
+		//route = addClientAPs(route, srcDevice, dstDevice);
+
+		for (ContentFlow flow : MonitoringSystem.flows) {
+			if (flow.getFlowId() == srcPort.getPort()) {
+				IcnModule.logger.info("Adding route " + route);
+				ArrayList<NodePortTuple> path = new ArrayList<NodePortTuple>();
+				path.addAll(route.getPath());
+				flow.setRoute(path);
+			}
+		}
 
 		Match.Builder forwardMatch = OFFactories
 				.getFactory(OFVersion.OF_13)
@@ -274,178 +297,17 @@ public class IcnEngine extends IcnForwarding {
 		U64 cookie = AppCookie.makeCookie(2, 0);
 
 		IcnModule.logger.info("Pushing route: " + route.toString());
+		
+		pushRoute(route, forwardMatch.build(), cookie, OFFlowModCommand.ADD,
+				srcSwId);
 
-		pushRoute(route, forwardMatch.build(), cookie, OFFlowModCommand.ADD);
-
-		// Temporarily, packets return via the same route
+		// packets return via the same route
 		Collections.reverse(route.getPath());
+		
 		IcnModule.logger.info("Pushing route: " + route.toString());
-		pushRoute(route, reverseMatch.build(), cookie, OFFlowModCommand.ADD);
+		pushRoute(route, reverseMatch.build(), cookie, OFFlowModCommand.ADD,
+				srcSwId);
 
-	}
-
-	private Route addClientAPs(Route route, IDevice srcDevice, IDevice dstDevice) {
-
-		List<NodePortTuple> path = route.getPath();
-		if (path == null) {
-			path = new ArrayList<NodePortTuple>(2);
-		}
-
-		path.add(
-				0,
-				new NodePortTuple(srcDevice.getAttachmentPoints()[0]
-						.getSwitchDPID(), srcDevice.getAttachmentPoints()[0]
-						.getPort()));
-		path.add(
-				path.size(),
-				new NodePortTuple(dstDevice.getAttachmentPoints()[0]
-						.getSwitchDPID(), dstDevice.getAttachmentPoints()[0]
-						.getPort()));
-
-		route.setPath(path);
-
-		return route;
-	}
-
-	public void flood(IOFSwitch sw, Ethernet eth, OFMessage msg) {
-		OFPacketIn pi = (OFPacketIn) msg;
-		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
-				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
-		// Set Action to flood
-		OFPacketOut.Builder pob = sw.getOFFactory().buildPacketOut();
-		List<OFAction> actions = new ArrayList<OFAction>();
-		Set<OFPort> broadcastPorts = this.topologyService
-				.getSwitchBroadcastPorts(sw.getId());
-
-		if (broadcastPorts == null) {
-			
-			/* Must be a single-switch w/no links */
-			broadcastPorts = Collections.singleton(OFPort.FLOOD);
-		}
-
-		for (OFPort p : broadcastPorts) {
-			if (p.equals(inPort))
-				continue;
-			actions.add(sw.getOFFactory().actions()
-					.output(p, Integer.MAX_VALUE));
-		}
-		pob.setActions(actions);
-		// log.info("actions {}",actions);
-		// set buffer-id, in-port and packet-data based on packet-in
-		pob.setBufferId(OFBufferId.NO_BUFFER);
-		pob.setInPort(inPort);
-		pob.setData(pi.getData());
-
-		sw.write(pob.build());
-
-		return;
-
-	}
-
-	public void forward(IOFSwitch sw, Ethernet eth, OFMessage msg,
-			FloodlightContext cntx) {
-		// TODO Implementation of basic forwarding without constraints
-		// TODO Maybe application aware routing based on transport ports
-		OFPacketIn pi = (OFPacketIn) msg;
-		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
-				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
-		IDevice dstDevice = IDeviceService.fcStore.get(cntx,
-				IDeviceService.CONTEXT_DST_DEVICE);
-		DatapathId source = sw.getId();
-
-		if (dstDevice != null) {
-			IDevice srcDevice = IDeviceService.fcStore.get(cntx,
-					IDeviceService.CONTEXT_SRC_DEVICE);
-
-			if (srcDevice == null) {
-				IcnModule.logger
-						.error("No device entry found for source device. Is the device manager running? If so, report bug.");
-				return;
-			}
-
-			/*
-			 * Validate that the source and destination are not on the same
-			 * switch port
-			 */
-			boolean on_same_if = false;
-			for (SwitchPort dstDap : dstDevice.getAttachmentPoints()) {
-				if (sw.getId().equals(dstDap.getSwitchDPID())
-						&& inPort.equals(dstDap.getPort())) {
-					on_same_if = true;
-				}
-				break;
-			}
-
-			if (on_same_if) {
-				IcnModule.logger
-						.info("Both source and destination are on the same switch/port {}/{}. Action = NOP",
-								sw.toString(), inPort);
-				return;
-			}
-
-			SwitchPort[] dstDaps = dstDevice.getAttachmentPoints();
-			SwitchPort dstDap = null;
-
-			/*
-			 * Search for the true attachment point. The true AP is not an
-			 * endpoint of a link. It is a switch port w/o an associated link.
-			 * Note this does not necessarily hold true for devices that 'live'
-			 * between OpenFlow islands.
-			 * 
-			 * TODO Account for the case where a device is actually attached
-			 * between islands (possibly on a non-OF switch in between two
-			 * OpenFlow switches).
-			 */
-			for (SwitchPort ap : dstDaps) {
-				if (topologyService.isEdge(ap.getSwitchDPID(), ap.getPort())) {
-					dstDap = ap;
-					break;
-				}
-			}
-
-			Route route = mpathRoutingService.getRoute(source, inPort,
-					dstDap.getSwitchDPID(), dstDap.getPort()); // cookie = 0,
-																// i.e., default
-																// route
-
-			Match m = createMatchFromPacket(sw, inPort, cntx);
-			U64 cookie = AppCookie.makeCookie(2, 0);
-
-			if (route != null) {
-				IcnModule.logger.debug("pushRoute inPort={} route={} "
-						+ "destination={}:{}", new Object[] { inPort, route,
-						dstDap.getSwitchDPID(), dstDap.getPort() });
-
-				IcnModule.logger.debug(
-						"Cretaing flow rules on the route, match rule: {}", m);
-				pushRoute(route, m, cookie, OFFlowModCommand.ADD);
-
-			} else {
-				/* Route traverses no links --> src/dst devices on same switch */
-				IcnModule.logger
-						.debug("Could not compute route. Devices should be on same switch src={} and dst={}",
-								srcDevice, dstDevice);
-				Route r = new Route(
-						srcDevice.getAttachmentPoints()[0].getSwitchDPID(),
-						dstDevice.getAttachmentPoints()[0].getSwitchDPID());
-				List<NodePortTuple> path = new ArrayList<NodePortTuple>(2);
-				path.add(new NodePortTuple(srcDevice.getAttachmentPoints()[0]
-						.getSwitchDPID(), srcDevice.getAttachmentPoints()[0]
-						.getPort()));
-				path.add(new NodePortTuple(dstDevice.getAttachmentPoints()[0]
-						.getSwitchDPID(), dstDevice.getAttachmentPoints()[0]
-						.getPort()));
-				r.setPath(path);
-				pushRoute(r, m, cookie, OFFlowModCommand.ADD);
-			}
-		}
-
-	}
-
-	private Match createMatchFromPacket(IOFSwitch sw, OFPort inPort,
-			FloodlightContext cntx) {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 }

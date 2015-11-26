@@ -1,10 +1,16 @@
 package icn.core;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.projectfloodlight.openflow.protocol.OFFlowMod;
 import org.projectfloodlight.openflow.protocol.OFFlowModCommand;
+import org.projectfloodlight.openflow.protocol.OFMessage;
+import org.projectfloodlight.openflow.protocol.OFPacketIn;
+import org.projectfloodlight.openflow.protocol.OFPacketOut;
+import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
 import org.projectfloodlight.openflow.protocol.match.Match;
@@ -14,10 +20,15 @@ import org.projectfloodlight.openflow.types.OFBufferId;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.U64;
 
+import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.internal.IOFSwitchService;
+import net.floodlightcontroller.core.util.AppCookie;
+import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
+import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.multipathrouting.IMultiPathRoutingService;
+import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.routing.IRoutingService;
 import net.floodlightcontroller.routing.Route;
 import net.floodlightcontroller.topology.ITopologyService;
@@ -55,7 +66,7 @@ public class IcnForwarding {
 	}
 	
 	protected boolean pushRoute(Route route, Match match,
-			U64 cookie, OFFlowModCommand flowModCommand) {
+			U64 cookie, OFFlowModCommand flowModCommand, DatapathId without) {
 
 		boolean packetOutSent = false;
 
@@ -65,7 +76,9 @@ public class IcnForwarding {
 			// indx and indx-1 will always have the same switch DPID.
 			DatapathId switchDPID = switchPortList.get(indx).getNodeId();
 			IOFSwitch sw = switchService.getSwitch(switchDPID);
-
+			if(without != null && switchDPID.equals(without)) {
+				
+			} else {
 			if (sw == null) {
 				if (IcnModule.logger.isWarnEnabled()) {
 					IcnModule.logger.warn(
@@ -139,12 +152,154 @@ public class IcnForwarding {
 			}
 		}
 
+		}
+		
 		return packetOutSent;
-
 	}
 
 	public void setMpathRoutingService(IMultiPathRoutingService mpathRoutingService) {
 		this.mpathRoutingService = mpathRoutingService;
+	}
+	
+	public void forward(IOFSwitch sw, Ethernet eth, OFMessage msg,
+			FloodlightContext cntx) {
+		// TODO Implementation of basic forwarding without constraints
+		// TODO Maybe application aware routing based on transport ports
+		OFPacketIn pi = (OFPacketIn) msg;
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
+				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+		IDevice dstDevice = IDeviceService.fcStore.get(cntx,
+				IDeviceService.CONTEXT_DST_DEVICE);
+		DatapathId source = sw.getId();
+
+		if (dstDevice != null) {
+			IDevice srcDevice = IDeviceService.fcStore.get(cntx,
+					IDeviceService.CONTEXT_SRC_DEVICE);
+
+			if (srcDevice == null) {
+				IcnModule.logger
+						.error("No device entry found for source device. Is the device manager running? If so, report bug.");
+				return;
+			}
+
+			/*
+			 * Validate that the source and destination are not on the same
+			 * switch port
+			 */
+			boolean on_same_if = false;
+			for (SwitchPort dstDap : dstDevice.getAttachmentPoints()) {
+				if (sw.getId().equals(dstDap.getSwitchDPID())
+						&& inPort.equals(dstDap.getPort())) {
+					on_same_if = true;
+				}
+				break;
+			}
+
+			if (on_same_if) {
+				IcnModule.logger
+						.info("Both source and destination are on the same switch/port {}/{}. Action = NOP",
+								sw.toString(), inPort);
+				return;
+			}
+
+			SwitchPort[] dstDaps = dstDevice.getAttachmentPoints();
+			SwitchPort dstDap = null;
+
+			/*
+			 * Search for the true attachment point. The true AP is not an
+			 * endpoint of a link. It is a switch port w/o an associated link.
+			 * Note this does not necessarily hold true for devices that 'live'
+			 * between OpenFlow islands.
+			 * 
+			 * TODO Account for the case where a device is actually attached
+			 * between islands (possibly on a non-OF switch in between two
+			 * OpenFlow switches).
+			 */
+			for (SwitchPort ap : dstDaps) {
+				if (topologyService.isEdge(ap.getSwitchDPID(), ap.getPort())) {
+					dstDap = ap;
+					break;
+				}
+			}
+
+			Route route = mpathRoutingService.getRoute(source, inPort,
+					dstDap.getSwitchDPID(), dstDap.getPort()); // cookie = 0,
+																// i.e., default
+																// route
+
+			Match m = createMatchFromPacket(sw, inPort, cntx);
+			U64 cookie = AppCookie.makeCookie(2, 0);
+
+			if (route != null) {
+				IcnModule.logger.debug("pushRoute inPort={} route={} "
+						+ "destination={}:{}", new Object[] { inPort, route,
+						dstDap.getSwitchDPID(), dstDap.getPort() });
+
+				IcnModule.logger.debug(
+						"Cretaing flow rules on the route, match rule: {}", m);
+				pushRoute(route, m, cookie, OFFlowModCommand.ADD, null);
+
+			} else {
+				/* Route traverses no links --> src/dst devices on same switch */
+				IcnModule.logger
+						.debug("Could not compute route. Devices should be on same switch src={} and dst={}",
+								srcDevice, dstDevice);
+				Route r = new Route(
+						srcDevice.getAttachmentPoints()[0].getSwitchDPID(),
+						dstDevice.getAttachmentPoints()[0].getSwitchDPID());
+				List<NodePortTuple> path = new ArrayList<NodePortTuple>(2);
+				path.add(new NodePortTuple(srcDevice.getAttachmentPoints()[0]
+						.getSwitchDPID(), srcDevice.getAttachmentPoints()[0]
+						.getPort()));
+				path.add(new NodePortTuple(dstDevice.getAttachmentPoints()[0]
+						.getSwitchDPID(), dstDevice.getAttachmentPoints()[0]
+						.getPort()));
+				r.setPath(path);
+				pushRoute(r, m, cookie, OFFlowModCommand.ADD, null);
+			}
+		}
+
+	}
+
+	private Match createMatchFromPacket(IOFSwitch sw, OFPort inPort,
+			FloodlightContext cntx) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	public void flood(IOFSwitch sw, Ethernet eth, OFMessage msg) {
+		OFPacketIn pi = (OFPacketIn) msg;
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
+				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+		// Set Action to flood
+		OFPacketOut.Builder pob = sw.getOFFactory().buildPacketOut();
+		List<OFAction> actions = new ArrayList<OFAction>();
+		Set<OFPort> broadcastPorts = this.topologyService
+				.getSwitchBroadcastPorts(sw.getId());
+
+		if (broadcastPorts == null) {
+			
+			/* Must be a single-switch w/no links */
+			broadcastPorts = Collections.singleton(OFPort.FLOOD);
+		}
+
+		for (OFPort p : broadcastPorts) {
+			if (p.equals(inPort))
+				continue;
+			actions.add(sw.getOFFactory().actions()
+					.output(p, Integer.MAX_VALUE));
+		}
+		pob.setActions(actions);
+		// log.info("actions {}",actions);
+		// set buffer-id, in-port and packet-data based on packet-in
+		pob.setBufferId(OFBufferId.NO_BUFFER);
+		pob.setInPort(inPort);
+		pob.setData(pi.getData());
+
+		sw.write(pob.build());
+
+		return;
+
 	}
 
 }

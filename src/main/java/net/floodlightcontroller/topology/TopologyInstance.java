@@ -885,7 +885,7 @@ public class TopologyInstance {
         nptList.add(0, npt); // add src port to the front
         npt = new NodePortTuple(dstId, dstPort);
         nptList.add(npt); // add dst port to the end
-
+        
         RouteId id = new RouteId(srcId, dstId);
         r = new Route(id, nptList);
         return r;

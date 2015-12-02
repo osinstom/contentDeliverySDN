@@ -51,11 +51,21 @@ public class ContentDesc {
 		
 		public final String ipAddr;
 		public final String localPath;
+		private boolean isLoaded;
 		
-		public Location(String ipAddr, String localPath) {
+		public boolean isLoaded() {
+			return isLoaded;
+		}
+
+		public void setLoaded(boolean isLoaded) {
+			this.isLoaded = isLoaded;
+		}
+
+		public Location(String ipAddr, String localPath, boolean isLoaded) {
 			super();
 			this.ipAddr = ipAddr;
 			this.localPath = localPath;
+			this.isLoaded = isLoaded;
 		}
 
 		public String getIpAddr() {

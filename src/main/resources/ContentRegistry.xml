@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<contents>
+	<content id="abc123">
+		<locations>
+			<location address="10.0.0.2" localPath="Files/abc123.txt" loaded="true" />
+			<location address="10.0.0.3" localPath="Files/abc123.txt" loaded="true" />
+			<location address="10.0.0.4" localPath="Files/abc123.txt" loaded="false" />
+		</locations>
+		<type>text</type>
+		<description>Dokument tekstowy</description>
+	</content>
+</contents>

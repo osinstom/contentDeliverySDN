@@ -22,6 +22,8 @@ import org.w3c.dom.NodeList;
 
 import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.forwarding.Forwarding;
+import net.floodlightcontroller.routing.Route;
+import net.floodlightcontroller.topology.NodePortTuple;
 
 public class Utils {
 
@@ -95,7 +97,7 @@ public class Utils {
 		List<Location> locations = new ArrayList<ContentDesc.Location>();
 
 		try {
-			File file = new File("src/main/resources/contents_db.xml");
+			File file = new File("src/main/resources/ContentRegistry.xml");
 			DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory
 					.newInstance();
 			DocumentBuilder documentBuilder = documentBuilderFactory
@@ -130,8 +132,10 @@ public class Utils {
 										.getAttribute("address");
 								String path = elmnt
 										.getAttribute("localPath");
+								boolean isLoaded = Boolean.parseBoolean(elmnt.getAttribute("loaded"));
+								
 								locations.add(new ContentDesc.Location(ipAddr,
-										path));
+										path, isLoaded));
 							}
 
 						}
@@ -171,6 +175,16 @@ public class Utils {
 
 		return null;
 
+	}
+
+	public static List<NodePortTuple> reverse(List<NodePortTuple> list) {
+		
+		List<NodePortTuple> reversed = new ArrayList<NodePortTuple>();
+		for(NodePortTuple npt : list) {
+			reversed.add(0, npt);
+		}
+		
+		return reversed;
 	}
 
 }

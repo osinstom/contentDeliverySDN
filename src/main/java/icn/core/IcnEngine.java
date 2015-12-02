@@ -22,6 +22,8 @@ import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.devicemanager.internal.Device;
+import net.floodlightcontroller.linkdiscovery.internal.LinkDiscoveryManager;
+import net.floodlightcontroller.linkdiscovery.internal.LinkInfo;
 import net.floodlightcontroller.multipathrouting.types.MultiRoute;
 import net.floodlightcontroller.packet.Data;
 import net.floodlightcontroller.packet.Ethernet;
@@ -79,15 +81,13 @@ public class IcnEngine extends IcnForwarding {
 			TCP tcp) {
 
 		String payload = new String(((Data) tcp.getPayload()).serialize());
-		IcnModule.logger.info(payload);
-
+		
 		if (ipv4.getDestinationAddress().equals(IcnModule.VIP)) {
 			if (payload.contains("HTTP") && payload.contains("GET")) { // HTTP
-																		// GET =
-																		// ContentRequest
+				IcnModule.logger.info(payload);						   // GET =
+				String srcIp = ipv4.getSourceAddress().toString(); // ContentRequest
 				String contentId = Utils.getContentId(payload);
 				String contentSourceUrl = getContentSource(contentId);
-				String srcIp = ipv4.getSourceAddress().toString();
 
 				if (contentSourceUrl != null) {
 
@@ -95,17 +95,22 @@ public class IcnEngine extends IcnForwarding {
 					contentSourceUrl = contentSourceUrl.replace("$flowId$",
 							Integer.toString(flowId));
 					MonitoringSystem.flows.add(new ContentFlow(flowId));
+
+//					new InstallRules(srcIp, contentSourceUrl, flowId).start();
+					
 					prepareRoute(
 							srcIp,
 							contentSourceUrl.substring(0,
 									contentSourceUrl.indexOf(":")),
 							TransportPort.of(flowId));
-
+					
 					OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 							contentSourceUrl);
 				} else
 					OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
 							OFUtils.HTTP_NOTFOUND);
+
+			} else if (payload.contains("HTTP") && payload.contains("PUT")) {
 
 			} else if (tcp.getFlags() == 2 // If TCP SYN to Virtual IP is
 											// received
@@ -117,10 +122,12 @@ public class IcnEngine extends IcnForwarding {
 		} else {
 			IcnModule.logger.info("Route to dest request: "
 					+ tcp.getSourcePort() + " " + tcp.getDestinationPort());
+			IcnModule.logger.info(MonitoringSystem.getInstance().getFlowIds()
+					.toString());
 			if (MonitoringSystem.getInstance().getFlowIds()
 					.contains(tcp.getDestinationPort().getPort())) {
 
-				IcnModule.logger.info("Route to dest request: "
+				IcnModule.logger.info("From sw: " + sw.getId() + " Route to dest request: "
 						+ tcp.getSourcePort() + " " + tcp.getDestinationPort());
 
 				OFUtils.setNatFlow(sw, msg, ipv4.getSourceAddress(),
@@ -176,11 +183,7 @@ public class IcnEngine extends IcnForwarding {
 
 		ContentDesc contentDesc = Utils.getContentDesc(contentId);
 		IcnModule.logger.info(contentDesc.toString());
-		Location bestSource = null;
-		if (contentDesc != null)
-			bestSource = calculateBestSource(contentDesc.getLocations());
-		else
-			return null;
+		Location bestSource = calculateBestSource(contentDesc.getLocations());
 
 		return bestSource.getIpAddr() + ":$flowId$/"
 				+ bestSource.getLocalPath();
@@ -189,15 +192,24 @@ public class IcnEngine extends IcnForwarding {
 
 	private Location calculateBestSource(List<Location> locations) {
 
+		Location bestLocation = null;
+
 		if (locations.size() == 1)
 			return locations.get(0);
 		else {
+			for (Location location : locations) {
+				if (location.isLoaded() == false) {
+					// to complete
+					bestLocation = location;
 
-			// calculating best source from all locations
+					Map<Link, LinkInfo> links = linkDiscoveryService.getLinks();
+
+				}
+			}
 
 		}
 
-		return null;
+		return bestLocation;
 
 	}
 
@@ -226,40 +238,21 @@ public class IcnEngine extends IcnForwarding {
 
 	}
 
-	private void prepareRouteX(DatapathId srcSwId, DatapathId dstSwId) {
-
-		MultiRoute multiRoute = mpathRoutingService.getMultiRoute(srcSwId,
-				dstSwId);
-		for (Route r : multiRoute.getRoutes())
-			IcnModule.logger.info("Route: " + r.toString());
-
-		// multiRoute.getRoute()
-	}
-
 	private void prepareRoute(IDevice srcDevice, IDevice dstDevice,
 			TransportPort srcPort) {
 
 		DatapathId srcSwId = srcDevice.getAttachmentPoints()[0].getSwitchDPID();
 		DatapathId dstSwId = dstDevice.getAttachmentPoints()[0].getSwitchDPID();
 
-		// Route route = mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
-		// .getRoute();
+		Route route = mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
+				.getRoute(srcDevice.getAttachmentPoints()[0].getPort(),
+						dstDevice.getAttachmentPoints()[0].getPort());
 
-		Route route = routingService.getRoute(srcSwId,
-				srcDevice.getAttachmentPoints()[0].getPort(), dstSwId,
-				dstDevice.getAttachmentPoints()[0].getPort(), null);
-
-//		IcnModule.logger.info("Routes:\n"
-//				+ mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
-//						.getRoutes());
-
-		if (route == null) {
-			route = new Route(
-					srcDevice.getAttachmentPoints()[0].getSwitchDPID(),
-					dstDevice.getAttachmentPoints()[0].getSwitchDPID());
-		}
-
-		//route = addClientAPs(route, srcDevice, dstDevice);
+		 if (route == null) {
+		 route = new Route(
+		 srcDevice.getAttachmentPoints()[0].getSwitchDPID(),
+		 dstDevice.getAttachmentPoints()[0].getSwitchDPID());
+		 }
 
 		for (ContentFlow flow : MonitoringSystem.flows) {
 			if (flow.getFlowId() == srcPort.getPort()) {
@@ -270,25 +263,17 @@ public class IcnEngine extends IcnForwarding {
 			}
 		}
 
-		Match.Builder forwardMatch = OFFactories
-				.getFactory(OFVersion.OF_13)
-				.buildMatch()
-				.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+		Match.Builder forwardMatch = OFFactories.getFactory(OFVersion.OF_13)
+				.buildMatch().setExact(MatchField.ETH_TYPE, EthType.IPv4)
 				.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
-				.setExact(MatchField.IN_PORT,
-						srcDevice.getAttachmentPoints()[0].getPort())
 				.setExact(MatchField.IPV4_SRC, srcDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.IPV4_DST, dstDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.TCP_SRC, srcPort)
 				.setExact(MatchField.TCP_DST, TransportPort.of(80));
 
-		Match.Builder reverseMatch = OFFactories
-				.getFactory(OFVersion.OF_13)
-				.buildMatch()
-				.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+		Match.Builder reverseMatch = OFFactories.getFactory(OFVersion.OF_13)
+				.buildMatch().setExact(MatchField.ETH_TYPE, EthType.IPv4)
 				.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
-				.setExact(MatchField.IN_PORT,
-						dstDevice.getAttachmentPoints()[0].getPort())
 				.setExact(MatchField.IPV4_SRC, dstDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.IPV4_DST, srcDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.TCP_DST, srcPort)
@@ -296,18 +281,43 @@ public class IcnEngine extends IcnForwarding {
 
 		U64 cookie = AppCookie.makeCookie(2, 0);
 
-		IcnModule.logger.info("Pushing route: " + route.toString());
-		
-		pushRoute(route, forwardMatch.build(), cookie, OFFlowModCommand.ADD,
+		IcnModule.logger.info("Pushing route: " + route.getPath().toString());
+
+		pushRoute(route.getPath(), forwardMatch.build(), cookie,
+				OFFlowModCommand.ADD, srcSwId);
+
+		List<NodePortTuple> revRoute = Utils.reverse(route.getPath());
+
+		IcnModule.logger.info("Pushing route: " + revRoute.toString());
+		pushRoute(revRoute, reverseMatch.build(), cookie, OFFlowModCommand.ADD,
 				srcSwId);
 
-		// packets return via the same route
-		Collections.reverse(route.getPath());
+	}
+	
+	private class InstallRules extends Thread {
 		
-		IcnModule.logger.info("Pushing route: " + route.toString());
-		pushRoute(route, reverseMatch.build(), cookie, OFFlowModCommand.ADD,
-				srcSwId);
+		private String srcIp;
+		private String contentSourceUrl;
+		private int flowId;
 
+		public InstallRules(String srcIp, String contentSourceUrl, int flowId) {
+			this.srcIp = srcIp;
+			this.contentSourceUrl = contentSourceUrl;
+			this.flowId = flowId;
+			
+		}
+
+		@Override
+		public void run() {
+			IcnModule.logger.info("Thread started.. ");
+			prepareRoute(
+					srcIp,
+					contentSourceUrl.substring(0,
+							contentSourceUrl.indexOf(":")),
+					TransportPort.of(flowId));
+			IcnModule.logger.info("Task finished.. ");
+		}
+		
 	}
 
 }

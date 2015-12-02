@@ -6,6 +6,17 @@
 		<IPv4Address>10.0.0.2</IPv4Address>
 		<SwitchDPID>00:00:00:00:00:00:00:05</SwitchDPID>
 		<SwitchPort>1</SwitchPort>
-		<loaded>false</loaded>
+	</server>
+	<server name="h3">
+		<MacAddress>00:00:00:00:00:03</MacAddress>
+		<IPv4Address>10.0.0.3</IPv4Address>
+		<SwitchDPID>00:00:00:00:00:00:00:05</SwitchDPID>
+		<SwitchPort>2</SwitchPort>
+	</server>
+	<server name="h4">
+		<MacAddress>00:00:00:00:00:04</MacAddress>
+		<IPv4Address>10.0.0.4</IPv4Address>
+		<SwitchDPID>00:00:00:00:00:00:00:03</SwitchDPID>
+		<SwitchPort>1</SwitchPort>
 	</server>
 </servers>

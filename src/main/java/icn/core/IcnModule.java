@@ -23,6 +23,7 @@ import net.floodlightcontroller.devicemanager.internal.DefaultEntityClassifier;
 import net.floodlightcontroller.devicemanager.internal.Device;
 import net.floodlightcontroller.devicemanager.internal.DeviceManagerImpl;
 import net.floodlightcontroller.devicemanager.internal.Entity;
+import net.floodlightcontroller.linkdiscovery.ILinkDiscoveryService;
 import net.floodlightcontroller.multipathrouting.IMultiPathRoutingService;
 import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Ethernet;
@@ -53,6 +54,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public ITopologyService topologyService = null;
 	public static IDeviceService deviceService = null;
 	public IMultiPathRoutingService mpathRoutingService = null;
+	private ILinkDiscoveryService linkDiscoveryService = null;
 
 	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
 	protected final static MacAddress VMAC = MacAddress.of("99:99:99:99:99:99");
@@ -93,6 +95,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		deviceService = context.getServiceImpl(IDeviceService.class);
 		mpathRoutingService = context
 				.getServiceImpl(IMultiPathRoutingService.class);
+		linkDiscoveryService = context.getServiceImpl(ILinkDiscoveryService.class);
 		logger = LoggerFactory.getLogger(IcnModule.class);
 
 	}
@@ -111,6 +114,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		IcnEngine.getInstance().setDeviceService(this.deviceService);
 		IcnEngine.getInstance().setSwitchService(this.switchService);
 		IcnEngine.getInstance().setMpathRoutingService(mpathRoutingService);
+		IcnEngine.getInstance().setLinkDiscoveryService(linkDiscoveryService);
 
 	}
 

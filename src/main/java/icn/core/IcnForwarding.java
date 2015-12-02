@@ -27,6 +27,7 @@ import net.floodlightcontroller.core.util.AppCookie;
 import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.devicemanager.SwitchPort;
+import net.floodlightcontroller.linkdiscovery.ILinkDiscoveryService;
 import net.floodlightcontroller.multipathrouting.IMultiPathRoutingService;
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.routing.IRoutingService;
@@ -48,7 +49,12 @@ public class IcnForwarding {
 	protected IRoutingService routingService;
 	protected ITopologyService topologyService;
 	protected IMultiPathRoutingService mpathRoutingService;
+	protected ILinkDiscoveryService linkDiscoveryService;
 	
+	public void setLinkDiscoveryService(ILinkDiscoveryService linkDiscoveryService) {
+		this.linkDiscoveryService = linkDiscoveryService;
+	}
+
 	public void setSwitchService(IOFSwitchService switchService) {
 		this.switchService = switchService;
 	}
@@ -65,12 +71,10 @@ public class IcnForwarding {
 		this.deviceService = deviceService;
 	}
 	
-	protected boolean pushRoute(Route route, Match match,
+	protected boolean pushRoute(List<NodePortTuple> switchPortList, Match match,
 			U64 cookie, OFFlowModCommand flowModCommand, DatapathId without) {
 
 		boolean packetOutSent = false;
-
-		List<NodePortTuple> switchPortList = route.getPath();
 
 		for (int indx = switchPortList.size() - 1; indx > 0; indx -= 2) {
 			// indx and indx-1 will always have the same switch DPID.
@@ -237,7 +241,7 @@ public class IcnForwarding {
 
 				IcnModule.logger.debug(
 						"Cretaing flow rules on the route, match rule: {}", m);
-				pushRoute(route, m, cookie, OFFlowModCommand.ADD, null);
+				pushRoute(route.getPath(), m, cookie, OFFlowModCommand.ADD, null);
 
 			} else {
 				/* Route traverses no links --> src/dst devices on same switch */
@@ -255,7 +259,7 @@ public class IcnForwarding {
 						.getSwitchDPID(), dstDevice.getAttachmentPoints()[0]
 						.getPort()));
 				r.setPath(path);
-				pushRoute(r, m, cookie, OFFlowModCommand.ADD, null);
+				pushRoute(r.getPath(), m, cookie, OFFlowModCommand.ADD, null);
 			}
 		}
 

@@ -61,13 +61,13 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
-		// TODO Auto-generated method stub
+		
 		return null;
 	}
 
 	@Override
 	public Map<Class<? extends IFloodlightService>, IFloodlightService> getServiceImpls() {
-		// TODO Auto-generated method stub
+		
 		return null;
 	}
 
@@ -104,8 +104,10 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public void startUp(FloodlightModuleContext context)
 			throws FloodlightModuleException {
 		floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
-	    floodlightProvider.addOFMessageListener(OFType.STATS_REPLY, new
-		 StatsListener());
+		Monitoring.getInstance().setSwitchService(switchService);
+		Monitoring.getInstance().setLinkDiscoveryService(linkDiscoveryService);
+		Monitoring.getInstance().setTopologyService(topologyService);
+		floodlightProvider.addOFMessageListener(OFType.FLOW_REMOVED, Monitoring.getInstance());
 		
 		switchService.addOFSwitchListener(new SwitchListener(switchService));
 
@@ -116,6 +118,9 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		IcnEngine.getInstance().setMpathRoutingService(mpathRoutingService);
 		IcnEngine.getInstance().setLinkDiscoveryService(linkDiscoveryService);
 
+		IcnModule.logger.info("INVOKED");
+		mpathRoutingService.modifyLinkCost(DatapathId.of("00:00:00:00:00:00:00:01"), DatapathId.of("00:00:00:00:00:00:00:04"), Short.MAX_VALUE);
+		
 	}
 
 	@Override
@@ -136,7 +141,8 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	@Override
 	public net.floodlightcontroller.core.IListener.Command receive(
 			IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-
+		mpathRoutingService.modifyLinkCost(DatapathId.of("00:00:00:00:00:00:00:01"), DatapathId.of("00:00:00:00:00:00:00:04"), (short)90);
+		
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 

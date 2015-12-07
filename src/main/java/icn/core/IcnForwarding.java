@@ -2,22 +2,32 @@ package icn.core;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.projectfloodlight.openflow.protocol.OFFactory;
+import org.projectfloodlight.openflow.protocol.OFFlowAdd;
 import org.projectfloodlight.openflow.protocol.OFFlowMod;
 import org.projectfloodlight.openflow.protocol.OFFlowModCommand;
+import org.projectfloodlight.openflow.protocol.OFFlowModFlags;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFPacketOut;
 import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
+import org.projectfloodlight.openflow.protocol.action.OFActionSetField;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
+import org.projectfloodlight.openflow.protocol.oxm.OFOxms;
 import org.projectfloodlight.openflow.types.DatapathId;
+import org.projectfloodlight.openflow.types.EthType;
+import org.projectfloodlight.openflow.types.IPv4Address;
+import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.OFBufferId;
 import org.projectfloodlight.openflow.types.OFPort;
+import org.projectfloodlight.openflow.types.TransportPort;
 import org.projectfloodlight.openflow.types.U64;
 
 import net.floodlightcontroller.core.FloodlightContext;
@@ -37,21 +47,23 @@ import net.floodlightcontroller.topology.NodePortTuple;
 import net.floodlightcontroller.util.MatchUtils;
 
 public class IcnForwarding {
-	
-	public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 5; // in seconds
-	public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 0; // infinite
+
+	public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 2; // in seconds
+	public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 2; // infinite
 	public static int FLOWMOD_DEFAULT_PRIORITY = 1; // 0 is the default
 													// table-miss flow in
 													// OF1.3+, so we need to use
 													// 1
+
 	protected IOFSwitchService switchService;
 	protected IDeviceService deviceService;
 	protected IRoutingService routingService;
 	protected ITopologyService topologyService;
 	protected IMultiPathRoutingService mpathRoutingService;
 	protected ILinkDiscoveryService linkDiscoveryService;
-	
-	public void setLinkDiscoveryService(ILinkDiscoveryService linkDiscoveryService) {
+
+	public void setLinkDiscoveryService(
+			ILinkDiscoveryService linkDiscoveryService) {
 		this.linkDiscoveryService = linkDiscoveryService;
 	}
 
@@ -70,9 +82,10 @@ public class IcnForwarding {
 	public void setDeviceService(IDeviceService deviceService) {
 		this.deviceService = deviceService;
 	}
-	
-	protected boolean pushRoute(List<NodePortTuple> switchPortList, Match match,
-			U64 cookie, OFFlowModCommand flowModCommand, DatapathId without) {
+
+	protected boolean pushRoute(List<NodePortTuple> switchPortList,
+			Match match, U64 cookie, OFFlowModCommand flowModCommand,
+			DatapathId without) {
 
 		boolean packetOutSent = false;
 
@@ -80,91 +93,97 @@ public class IcnForwarding {
 			// indx and indx-1 will always have the same switch DPID.
 			DatapathId switchDPID = switchPortList.get(indx).getNodeId();
 			IOFSwitch sw = switchService.getSwitch(switchDPID);
-			if(without != null && switchDPID.equals(without)) {
-				
+			if (without != null && switchDPID.equals(without)) {
+
 			} else {
-			if (sw == null) {
-				if (IcnModule.logger.isWarnEnabled()) {
-					IcnModule.logger.warn(
-							"Unable to push route, switch at DPID {} "
-									+ "not available", switchDPID);
+				if (sw == null) {
+					if (IcnModule.logger.isWarnEnabled()) {
+						IcnModule.logger.warn(
+								"Unable to push route, switch at DPID {} "
+										+ "not available", switchDPID);
+					}
+					return packetOutSent;
 				}
-				return packetOutSent;
+
+				// need to build flow mod based on what type it is. Cannot set
+				// command later
+				OFFlowMod.Builder fmb;
+				switch (flowModCommand) {
+				case ADD:
+					fmb = sw.getOFFactory().buildFlowAdd();
+					break;
+				case DELETE:
+					fmb = sw.getOFFactory().buildFlowDelete();
+					break;
+				case DELETE_STRICT:
+					fmb = sw.getOFFactory().buildFlowDeleteStrict();
+					break;
+				case MODIFY:
+					fmb = sw.getOFFactory().buildFlowModify();
+					break;
+				default:
+					IcnModule.logger
+							.error("Could not decode OFFlowModCommand. Using MODIFY_STRICT. (Should another be used as the default?)");
+				case MODIFY_STRICT:
+					fmb = sw.getOFFactory().buildFlowModifyStrict();
+					break;
+				}
+
+				OFActionOutput.Builder aob = sw.getOFFactory().actions()
+						.buildOutput();
+				List<OFAction> actions = new ArrayList<OFAction>();
+				Match.Builder mb = MatchUtils.convertToVersion(match, sw
+						.getOFFactory().getVersion());
+
+				// set input and output ports on the switch
+				OFPort outPort = switchPortList.get(indx).getPortId();
+				OFPort inPort = switchPortList.get(indx - 1).getPortId();
+				mb.setExact(MatchField.IN_PORT, inPort);
+				aob.setPort(outPort);
+				aob.setMaxLen(Integer.MAX_VALUE);
+				actions.add(aob.build());
+
+				// if (FLOWMOD_DEFAULT_SET_SEND_FLOW_REM_FLAG ||
+				// requestFlowRemovedNotification) {
+				// Set<OFFlowModFlags> flags = new HashSet<>();
+				// flags.add(OFFlowModFlags.SEND_FLOW_REM);
+				// fmb.setFlags(flags);
+				// }
+				Set<OFFlowModFlags> flags = new HashSet<>();
+				flags.add(OFFlowModFlags.SEND_FLOW_REM);
+				fmb.setMatch(mb.build()).setActions(actions)
+						.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
+						.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
+						.setFlags(flags).setBufferId(OFBufferId.NO_BUFFER)
+						.setCookie(cookie).setOutPort(outPort)
+						.setPriority(FLOWMOD_DEFAULT_PRIORITY);
+
+				try {
+
+					IcnModule.logger.trace(
+							"Pushing Route flowmod routeIndx={} "
+									+ "sw={} inPort={} outPort={}",
+							new Object[] { indx, sw,
+									fmb.getMatch().get(MatchField.IN_PORT),
+									outPort });
+
+					sw.write(fmb.build());
+
+				} catch (Exception e) {
+					IcnModule.logger.error("Failure writing flow mod", e);
+				}
 			}
 
-			// need to build flow mod based on what type it is. Cannot set
-			// command later
-			OFFlowMod.Builder fmb;
-			switch (flowModCommand) {
-			case ADD:
-				fmb = sw.getOFFactory().buildFlowAdd();
-				break;
-			case DELETE:
-				fmb = sw.getOFFactory().buildFlowDelete();
-				break;
-			case DELETE_STRICT:
-				fmb = sw.getOFFactory().buildFlowDeleteStrict();
-				break;
-			case MODIFY:
-				fmb = sw.getOFFactory().buildFlowModify();
-				break;
-			default:
-				IcnModule.logger
-						.error("Could not decode OFFlowModCommand. Using MODIFY_STRICT. (Should another be used as the default?)");
-			case MODIFY_STRICT:
-				fmb = sw.getOFFactory().buildFlowModifyStrict();
-				break;
-			}
-
-			OFActionOutput.Builder aob = sw.getOFFactory().actions()
-					.buildOutput();
-			List<OFAction> actions = new ArrayList<OFAction>();
-			Match.Builder mb = MatchUtils.convertToVersion(match, sw
-					.getOFFactory().getVersion());
-
-			// set input and output ports on the switch
-			OFPort outPort = switchPortList.get(indx).getPortId();
-			OFPort inPort = switchPortList.get(indx - 1).getPortId();
-			mb.setExact(MatchField.IN_PORT, inPort);
-			aob.setPort(outPort);
-			aob.setMaxLen(Integer.MAX_VALUE);
-			actions.add(aob.build());
-
-			// if (FLOWMOD_DEFAULT_SET_SEND_FLOW_REM_FLAG ||
-			// requestFlowRemovedNotification) {
-			// Set<OFFlowModFlags> flags = new HashSet<>();
-			// flags.add(OFFlowModFlags.SEND_FLOW_REM);
-			// fmb.setFlags(flags);
-			// }
-
-			fmb.setMatch(mb.build()).setActions(actions)
-//					.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
-//					.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
-					.setBufferId(OFBufferId.NO_BUFFER).setCookie(cookie)
-					.setOutPort(outPort).setPriority(FLOWMOD_DEFAULT_PRIORITY);
-
-			try {
-
-				IcnModule.logger.trace("Pushing Route flowmod routeIndx={} "
-						+ "sw={} inPort={} outPort={}", new Object[] { indx,
-						sw, fmb.getMatch().get(MatchField.IN_PORT), outPort });
-
-				sw.write(fmb.build());
-
-			} catch (Exception e) {
-				IcnModule.logger.error("Failure writing flow mod", e);
-			}
 		}
 
-		}
-		
 		return packetOutSent;
 	}
 
-	public void setMpathRoutingService(IMultiPathRoutingService mpathRoutingService) {
+	public void setMpathRoutingService(
+			IMultiPathRoutingService mpathRoutingService) {
 		this.mpathRoutingService = mpathRoutingService;
 	}
-	
+
 	public void forward(IOFSwitch sw, Ethernet eth, OFMessage msg,
 			FloodlightContext cntx) {
 		// TODO Implementation of basic forwarding without constraints
@@ -241,7 +260,8 @@ public class IcnForwarding {
 
 				IcnModule.logger.debug(
 						"Cretaing flow rules on the route, match rule: {}", m);
-				pushRoute(route.getPath(), m, cookie, OFFlowModCommand.ADD, null);
+				pushRoute(route.getPath(), m, cookie, OFFlowModCommand.ADD,
+						null);
 
 			} else {
 				/* Route traverses no links --> src/dst devices on same switch */
@@ -270,7 +290,7 @@ public class IcnForwarding {
 		// TODO Auto-generated method stub
 		return null;
 	}
-	
+
 	public void flood(IOFSwitch sw, Ethernet eth, OFMessage msg) {
 		OFPacketIn pi = (OFPacketIn) msg;
 		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
@@ -282,7 +302,7 @@ public class IcnForwarding {
 				.getSwitchBroadcastPorts(sw.getId());
 
 		if (broadcastPorts == null) {
-			
+
 			/* Must be a single-switch w/no links */
 			broadcastPorts = Collections.singleton(OFPort.FLOOD);
 		}
@@ -304,6 +324,109 @@ public class IcnForwarding {
 
 		return;
 
+	}
+
+	public static void setNatFlow(IOFSwitch sw, OFMessage msg,
+			IPv4Address srcIp, IPv4Address dstIp, TransportPort sourcePort,
+			TransportPort destinationPort) {
+
+		OFPacketIn pi = (OFPacketIn) msg;
+
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
+				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+
+		OFFactory ofFactory = sw.getOFFactory();
+		List<OFAction> actions = new ArrayList<OFAction>();
+		OFOxms oxms = ofFactory.oxms();
+
+		OFActionSetField setTcpDst = ofFactory
+				.actions()
+				.buildSetField()
+				.setField(
+						oxms.buildTcpDst().setValue(TransportPort.of(80))
+								.build()).build();
+		actions.add(setTcpDst);
+
+		OFActionSetField setTcpSrc = ofFactory.actions().buildSetField()
+				.setField(oxms.buildTcpSrc().setValue(destinationPort).build())
+				.build();
+		actions.add(setTcpSrc);
+
+		OFPort output = null;
+		OFPort revOutput = null;
+
+		for (ContentFlow flow : Monitoring.flows.get(srcIp.toString() + ":" + dstIp.toString())) {
+			if (flow.getFlowId() == destinationPort.getPort()) {
+				IcnModule.logger.info(flow.getRoute().toString());
+				output = flow.getRoute().get(1).getPortId();
+				revOutput = flow.getRoute().get(0).getPortId();
+			}
+		}
+
+		Set<OFFlowModFlags> flags = new HashSet<>();
+		flags.add(OFFlowModFlags.SEND_FLOW_REM);
+
+		actions.add(ofFactory.actions().output(output, 0xffFFffFF));
+
+		OFFlowAdd natFlow = ofFactory
+				.buildFlowAdd()
+				.setActions(actions)
+				.setBufferId(OFBufferId.NO_BUFFER)
+				.setFlags(flags)
+				.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
+				.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
+				.setMatch(
+						ofFactory.buildMatch()
+								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+								.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
+								.setExact(MatchField.IPV4_SRC, srcIp)
+								.setExact(MatchField.IPV4_DST, dstIp)
+								.setExact(MatchField.TCP_SRC, sourcePort)
+								.setExact(MatchField.TCP_DST, destinationPort)
+								.build()).setPriority(1).build();
+
+		ArrayList<OFMessage> messages = new ArrayList<OFMessage>();
+		messages.add(natFlow);
+
+		List<OFAction> revActions = new ArrayList<OFAction>();
+		OFActionSetField setRevTcpDst = ofFactory.actions().buildSetField()
+				.setField(oxms.buildTcpDst().setValue(sourcePort).build())
+				.build();
+		revActions.add(setRevTcpDst);
+
+		OFActionSetField setRevTcpSrc = ofFactory.actions().buildSetField()
+				.setField(oxms.buildTcpSrc().setValue(destinationPort).build())
+				.build();
+		revActions.add(setRevTcpSrc);
+
+		revActions.add(ofFactory.actions().output(revOutput, 0xffFFffFF));
+
+		OFFlowAdd revNatFlow = ofFactory
+				.buildFlowAdd()
+				.setActions(revActions)
+				.setFlags(flags)
+				.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
+				.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
+				.setBufferId(OFBufferId.NO_BUFFER)
+				.setMatch(
+						ofFactory
+								.buildMatch()
+								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
+								.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
+								.setExact(MatchField.IPV4_SRC, dstIp)
+								.setExact(MatchField.IPV4_DST, srcIp)
+								.setExact(MatchField.TCP_SRC,
+										TransportPort.of(80))
+								.setExact(MatchField.TCP_DST, destinationPort)
+								.build()).setPriority(1).build();
+		messages.add(revNatFlow);
+
+		OFPacketOut po = sw.getOFFactory().buildPacketOut()
+				.setData(((OFPacketIn) msg).getData()).setActions(actions)
+				.setInPort(inPort).build();
+
+		messages.add(po);
+		sw.write(messages);
 	}
 
 }

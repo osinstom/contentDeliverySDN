@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -18,6 +19,7 @@ import net.floodlightcontroller.util.FlowModUtils;
 
 import org.projectfloodlight.openflow.protocol.OFFactory;
 import org.projectfloodlight.openflow.protocol.OFFlowAdd;
+import org.projectfloodlight.openflow.protocol.OFFlowModFlags;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFPacketOut;
@@ -397,111 +399,6 @@ public class OFUtils {
 		IcnModule.logger.info("ARP FLOW INSTALLED");
 	}
 
-	public static void setNatFlow(IOFSwitch sw, OFMessage msg, IPv4Address srcIp,
-			IPv4Address dstIp, TransportPort sourcePort,
-			TransportPort destinationPort) {
-		
-		OFPacketIn pi = (OFPacketIn) msg;
-
-		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
-				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
-
-		OFFactory ofFactory = sw.getOFFactory();
-		List<OFAction> actions = new ArrayList<OFAction>();
-		OFOxms oxms = ofFactory.oxms();
-
-		OFActionSetField setTcpDst = ofFactory
-				.actions()
-				.buildSetField()
-				.setField(
-						oxms.buildTcpDst().setValue(TransportPort.of(80))
-								.build()).build();
-		actions.add(setTcpDst);
-
-		OFActionSetField setTcpSrc = ofFactory
-				.actions()
-				.buildSetField()
-				.setField(
-						oxms.buildTcpSrc().setValue(destinationPort)
-								.build()).build();
-		actions.add(setTcpSrc);
-		
-		OFPort output = null ;
-		OFPort revOutput = null;
-		
-		for(ContentFlow flow : MonitoringSystem.flows) {
-			if(flow.getFlowId() == destinationPort.getPort()) {
-				IcnModule.logger.info(flow.getRoute().toString());
-				output = flow.getRoute().get(1).getPortId();
-				revOutput = flow.getRoute().get(0).getPortId();
-			}
-		}
-		
-		actions.add(ofFactory.actions().output(output, 0xffFFffFF));
-
-		OFFlowAdd natFlow = ofFactory
-				.buildFlowAdd()
-				.setActions(actions)
-				.setBufferId(OFBufferId.NO_BUFFER)
-				.setMatch(
-						ofFactory.buildMatch()
-								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
-								.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
-								.setExact(MatchField.IPV4_SRC, srcIp)
-								.setExact(MatchField.IPV4_DST, dstIp)
-								.setExact(MatchField.TCP_SRC, sourcePort)
-								.setExact(MatchField.TCP_DST, destinationPort)
-								.build())
-				.setPriority(1).build();
-
-		
-		ArrayList<OFMessage> messages = new ArrayList<OFMessage>();
-		messages.add(natFlow);
-		
-		List<OFAction> revActions = new ArrayList<OFAction>();
-		OFActionSetField setRevTcpDst = ofFactory
-				.actions()
-				.buildSetField()
-				.setField(
-						oxms.buildTcpDst().setValue(sourcePort)
-								.build()).build();
-		revActions.add(setRevTcpDst);
-
-		OFActionSetField setRevTcpSrc = ofFactory
-				.actions()
-				.buildSetField()
-				.setField(
-						oxms.buildTcpSrc().setValue(destinationPort)
-								.build()).build();
-		revActions.add(setRevTcpSrc);
-		
-		revActions.add(ofFactory.actions().output(revOutput, 0xffFFffFF));
-		
-		OFFlowAdd revNatFlow = ofFactory
-				.buildFlowAdd()
-				.setActions(revActions)
-				.setBufferId(OFBufferId.NO_BUFFER)
-				.setMatch(
-						ofFactory.buildMatch()
-								.setExact(MatchField.ETH_TYPE, EthType.IPv4)
-								.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
-								.setExact(MatchField.IPV4_SRC, dstIp)
-								.setExact(MatchField.IPV4_DST, srcIp)
-								.setExact(MatchField.TCP_SRC, TransportPort.of(80))
-								.setExact(MatchField.TCP_DST, destinationPort)
-								.build())
-				.setPriority(1).build();
-		messages.add(revNatFlow);
-		
-		OFPacketOut po = sw
-				.getOFFactory()
-				.buildPacketOut()
-				.setData(((OFPacketIn)msg).getData())
-				.setActions(actions)
-				.setInPort(inPort).build();
-
-		messages.add(po);
-		sw.write(messages);
-	}
+	
 
 }

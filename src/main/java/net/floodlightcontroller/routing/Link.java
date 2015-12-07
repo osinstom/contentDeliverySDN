@@ -17,6 +17,8 @@
 
 package net.floodlightcontroller.routing;
 
+import java.sql.Timestamp;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import org.projectfloodlight.openflow.types.DatapathId;
@@ -34,8 +36,40 @@ public class Link implements Comparable<Link> {
     private OFPort dstPort;
     @JsonProperty("latency") 
     private U64 latency; /* we intentionally exclude the latency from hashcode and equals */
+    
+    private long maxBandwidth = 0;
+    private long currBandwidth;
+    
+    private long prevTimestamp = 0;
+    private long prevBytes = 0;
+    private long count = 0;
+    private double averageBandwidth = 0;
 
-    public Link(DatapathId srcId, OFPort srcPort, DatapathId dstId, OFPort dstPort, U64 latency) {
+	public double getAverageBandwidth() {
+		return averageBandwidth;
+	}
+
+	public void setAverageBandwidth(double averageBandwidth) {
+		this.averageBandwidth = averageBandwidth;
+	}
+
+	public long getPrevBytes() {
+		return prevBytes;
+	}
+
+	public void setPrevBytes(long prevBytes) {
+		this.prevBytes = prevBytes;
+	}
+
+	public long getPrevTimestamp() {
+		return prevTimestamp;
+	}
+
+	public void setPrevTimestamp(long prevTimestamp) {
+		this.prevTimestamp = prevTimestamp;
+	}
+
+	public Link(DatapathId srcId, OFPort srcPort, DatapathId dstId, OFPort dstPort, U64 latency) {
         this.src = srcId;
         this.srcPort = srcPort;
         this.dst = dstId;
@@ -50,6 +84,25 @@ public class Link implements Comparable<Link> {
     public Link() {
         super();
     }
+    
+    public long getMaxBandwidth() {
+		return maxBandwidth;
+	}
+
+	public void setMaxBandwidth(long maxBandwidth) {
+		this.maxBandwidth = maxBandwidth;
+	}
+
+	public long getCurrBandwidth() {
+		return currBandwidth;
+	}
+
+	public void setCurrBandwidth(long currBandwidth) {
+		count++;
+		this.averageBandwidth = ((this.averageBandwidth + currBandwidth)/count) / 1000;
+		
+		this.currBandwidth = currBandwidth;
+	}
 
     public DatapathId getSrc() {
         return src;

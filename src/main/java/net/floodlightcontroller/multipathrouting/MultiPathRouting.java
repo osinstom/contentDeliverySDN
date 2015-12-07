@@ -1,5 +1,7 @@
 package net.floodlightcontroller.multipathrouting;
 
+import icn.core.IcnModule;
+
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.List;
@@ -22,6 +24,7 @@ import net.floodlightcontroller.linkdiscovery.ILinkDiscovery.LDUpdate;
 import net.floodlightcontroller.topology.ITopologyListener;
 import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.topology.NodePortTuple;
+import net.floodlightcontroller.routing.IRoutingDecision;
 import net.floodlightcontroller.routing.Route;
 import net.floodlightcontroller.routing.RouteId;
 import net.floodlightcontroller.core.IFloodlightProviderService;
@@ -120,6 +123,7 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
         if (0 == dpidLinks.get(dpid).size())
        		dpidLinks.remove(dpid);
     }
+    
     public void addLink(LinkWithCost link) {
         DatapathId dpid = link.getSrcDpid();
 
@@ -131,6 +135,7 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
             dpidLinks.get(dpid).add(link);
         }
     }
+
     public Route buildFlowRoute(FlowId fid) {
         DatapathId srcDpid = fid.getSrc();
         DatapathId dstDpid = fid.getDst();
@@ -326,7 +331,9 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
     public void modifyLinkCost(DatapathId srcDpid,DatapathId dstDpid,short cost) {
         updateLinkCost(srcDpid,dstDpid,cost);
         updateLinkCost(dstDpid,srcDpid,cost);
+
         clearRoutingCache();
+
     }
 
 

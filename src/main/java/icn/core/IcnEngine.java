@@ -7,11 +7,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IFloodlightProviderService;
@@ -81,29 +84,43 @@ public class IcnEngine extends IcnForwarding {
 			TCP tcp) {
 
 		String payload = new String(((Data) tcp.getPayload()).serialize());
-		
+
 		if (ipv4.getDestinationAddress().equals(IcnModule.VIP)) {
 			if (payload.contains("HTTP") && payload.contains("GET")) { // HTTP
-				IcnModule.logger.info(payload);						   // GET =
+				IcnModule.logger.info(payload); // GET =
 				String srcIp = ipv4.getSourceAddress().toString(); // ContentRequest
-				String contentId = Utils.getContentId(payload);
-				String contentSourceUrl = getContentSource(contentId);
+
+				String contentSourceUrl = getContentSource(
+						Utils.getContentId(payload), srcIp);
 
 				if (contentSourceUrl != null) {
+					String contentFlowId = srcIp
+							+ ":"
+							+ contentSourceUrl.substring(0,
+									contentSourceUrl.indexOf(":"));
 
-					int flowId = getFlowId();
+					int flowId = getFlowId(contentFlowId);
 					contentSourceUrl = contentSourceUrl.replace("$flowId$",
 							Integer.toString(flowId));
-					MonitoringSystem.flows.add(new ContentFlow(flowId));
 
-//					new InstallRules(srcIp, contentSourceUrl, flowId).start();
-					
+					if (Monitoring.flows.containsKey(contentFlowId))
+						Monitoring.flows.get(contentFlowId).add(
+								new ContentFlow(flowId));
+					else {
+						ConcurrentLinkedQueue<ContentFlow> cFlows = new ConcurrentLinkedQueue<ContentFlow>();
+						cFlows.add(new ContentFlow(flowId));
+						Monitoring.flows.put(contentFlowId, cFlows);
+					}
+
+					// new InstallRules(srcIp, contentSourceUrl,
+					// flowId).start();
+
 					prepareRoute(
 							srcIp,
 							contentSourceUrl.substring(0,
 									contentSourceUrl.indexOf(":")),
 							TransportPort.of(flowId));
-					
+
 					OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 							contentSourceUrl);
 				} else
@@ -111,7 +128,7 @@ public class IcnEngine extends IcnForwarding {
 							OFUtils.HTTP_NOTFOUND);
 
 			} else if (payload.contains("HTTP") && payload.contains("PUT")) {
-
+				IcnModule.logger.info(payload);
 			} else if (tcp.getFlags() == 2 // If TCP SYN to Virtual IP is
 											// received
 											// on port 80
@@ -122,15 +139,19 @@ public class IcnEngine extends IcnForwarding {
 		} else {
 			IcnModule.logger.info("Route to dest request: "
 					+ tcp.getSourcePort() + " " + tcp.getDestinationPort());
-			IcnModule.logger.info(MonitoringSystem.getInstance().getFlowIds()
-					.toString());
-			if (MonitoringSystem.getInstance().getFlowIds()
+			String contentFlowId = ipv4.getSourceAddress().toString() + ":"
+					+ ipv4.getDestinationAddress();
+			IcnModule.logger.info(Monitoring.getInstance()
+					.getFlowIds(contentFlowId).toString());
+
+			if (Monitoring.getInstance().getFlowIds(contentFlowId)
 					.contains(tcp.getDestinationPort().getPort())) {
 
-				IcnModule.logger.info("From sw: " + sw.getId() + " Route to dest request: "
-						+ tcp.getSourcePort() + " " + tcp.getDestinationPort());
+				IcnModule.logger.info("From sw: " + sw.getId()
+						+ " Route to dest request: " + tcp.getSourcePort()
+						+ " " + tcp.getDestinationPort());
 
-				OFUtils.setNatFlow(sw, msg, ipv4.getSourceAddress(),
+				setNatFlow(sw, msg, ipv4.getSourceAddress(),
 						ipv4.getDestinationAddress(), tcp.getSourcePort(),
 						tcp.getDestinationPort());
 
@@ -143,17 +164,17 @@ public class IcnEngine extends IcnForwarding {
 
 	}
 
-	private Integer getFlowId() {
+	private Integer getFlowId(String contentFlowId) {
 
 		int flowId = 0;
 		do {
-
 			Random rn = new Random();
 			int range = 65535 - 49152 + 1;
 			flowId = rn.nextInt(range) + 49152;
 			IcnModule.logger.info("FlowId: " + flowId);
 		} while (flowId == 0
-				&& MonitoringSystem.getInstance().getFlowIds().contains(flowId));
+				|| Monitoring.getInstance().getFlowIds(contentFlowId)
+						.contains(flowId));
 		return flowId;
 	}
 
@@ -179,38 +200,66 @@ public class IcnEngine extends IcnForwarding {
 
 	}
 
-	private String getContentSource(String contentId) {
+	private String getContentSource(String contentId, String srcIp) {
 
 		ContentDesc contentDesc = Utils.getContentDesc(contentId);
 		IcnModule.logger.info(contentDesc.toString());
-		Location bestSource = calculateBestSource(contentDesc.getLocations());
+		Location bestSource = calculateBestSource(contentDesc.getLocations(),
+				srcIp, contentDesc.getBandwidth());
 
 		return bestSource.getIpAddr() + ":$flowId$/"
 				+ bestSource.getLocalPath();
 
 	}
 
-	private Location calculateBestSource(List<Location> locations) {
+	private Location calculateBestSource(List<Location> locations,
+			String srcIp, Long minBandwidth) {
 
 		Location bestLocation = null;
+		IDevice srcDev = null;
+		IDevice dstDev = null;
+
+		// for (IDevice device : deviceService.getAllDevices())
+		// if(device.getIPv4Addresses() != null)
+		// if (device.getIPv4Addresses()[0].toString().equals(srcIp))
+		// srcDev = device;
 
 		if (locations.size() == 1)
 			return locations.get(0);
 		else {
-			for (Location location : locations) {
+			List<Location> potentials = new ArrayList<ContentDesc.Location>();
+			for (Location location : locations)
 				if (location.isLoaded() == false) {
-					// to complete
 					bestLocation = location;
-
-					Map<Link, LinkInfo> links = linkDiscoveryService.getLinks();
-
+					potentials.add(location);
 				}
+			List<Route> routes = new ArrayList<Route>();
+			for (Location potential : potentials) {
+
+				// for (IDevice device : deviceService.getAllDevices())
+				// if (device.getIPv4Addresses()[0].toString().equals(
+				// potential.getIpAddr()))
+				// dstDev = device;
+				//
+				// ArrayList<Route> rs = mpathRoutingService.getMultiRoute(
+				// srcDev.getAttachmentPoints()[0].getSwitchDPID(),
+				// dstDev.getAttachmentPoints()[0].getSwitchDPID())
+				// .getRoutes();
+				//
+				// for(Route r : rs) {
+				// if(bottleneckBandwidth(r) < minBandwidth)
+				// rs.remove(r);
+				// }
+
 			}
-
 		}
-
 		return bestLocation;
 
+	}
+
+	private Long bottleneckBandwidth(Route r) {
+
+		return (long) 60;
 	}
 
 	public void prepareRoute(String srcIp, String dstIp, TransportPort srcPort) {
@@ -219,9 +268,9 @@ public class IcnEngine extends IcnForwarding {
 		IDevice dstDevice = null;
 
 		for (IDevice device : deviceService.getAllDevices()) {
-			IcnModule.logger
-					.info("Device MAC: " + device.getMACAddressString());
-			IcnModule.logger.info("Device: \n" + device.toString());
+//			IcnModule.logger
+//					.info("Device MAC: " + device.getMACAddressString());
+//			IcnModule.logger.info("Device: \n" + device.toString());
 			if (device.getIPv4Addresses().length != 0
 					&& device.getIPv4Addresses()[0] != null) {
 				if (device.getIPv4Addresses()[0].equals(IPv4Address.of(srcIp)))
@@ -243,25 +292,27 @@ public class IcnEngine extends IcnForwarding {
 
 		DatapathId srcSwId = srcDevice.getAttachmentPoints()[0].getSwitchDPID();
 		DatapathId dstSwId = dstDevice.getAttachmentPoints()[0].getSwitchDPID();
+		Route route = null;
+		if (!srcSwId.equals(dstSwId)) {
+			route = mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
+					.getRoute(srcDevice.getAttachmentPoints()[0].getPort(),
+							dstDevice.getAttachmentPoints()[0].getPort());
+		} else {
+			route = routingService.getRoute(srcSwId,
+					srcDevice.getAttachmentPoints()[0].getPort(), dstSwId,
+					dstDevice.getAttachmentPoints()[0].getPort(), null);
+		}
 
-		Route route = mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
-				.getRoute(srcDevice.getAttachmentPoints()[0].getPort(),
-						dstDevice.getAttachmentPoints()[0].getPort());
-
-		 if (route == null) {
-		 route = new Route(
-		 srcDevice.getAttachmentPoints()[0].getSwitchDPID(),
-		 dstDevice.getAttachmentPoints()[0].getSwitchDPID());
-		 }
-
-		for (ContentFlow flow : MonitoringSystem.flows) {
-			if (flow.getFlowId() == srcPort.getPort()) {
-				IcnModule.logger.info("Adding route " + route);
-				ArrayList<NodePortTuple> path = new ArrayList<NodePortTuple>();
-				path.addAll(route.getPath());
-				flow.setRoute(path);
+		ContentFlow flow = null;
+		for (ContentFlow f : Monitoring.flows
+				.get(srcDevice.getIPv4Addresses()[0].toString() + ":"
+						+ dstDevice.getIPv4Addresses()[0].toString())) {
+			if (f.getFlowId() == srcPort.getPort()) {
+				flow = f;
 			}
 		}
+		IcnModule.logger.info("Route for flow: " + route.getPath());
+		flow.setRoute(route.getPath());
 
 		Match.Builder forwardMatch = OFFactories.getFactory(OFVersion.OF_13)
 				.buildMatch().setExact(MatchField.ETH_TYPE, EthType.IPv4)
@@ -279,6 +330,8 @@ public class IcnEngine extends IcnForwarding {
 				.setExact(MatchField.TCP_DST, srcPort)
 				.setExact(MatchField.TCP_SRC, TransportPort.of(80));
 
+		flow.setFlowMatch(forwardMatch.build());
+
 		U64 cookie = AppCookie.makeCookie(2, 0);
 
 		IcnModule.logger.info("Pushing route: " + route.getPath().toString());
@@ -293,9 +346,9 @@ public class IcnEngine extends IcnForwarding {
 				srcSwId);
 
 	}
-	
+
 	private class InstallRules extends Thread {
-		
+
 		private String srcIp;
 		private String contentSourceUrl;
 		private int flowId;
@@ -304,20 +357,17 @@ public class IcnEngine extends IcnForwarding {
 			this.srcIp = srcIp;
 			this.contentSourceUrl = contentSourceUrl;
 			this.flowId = flowId;
-			
+
 		}
 
 		@Override
 		public void run() {
 			IcnModule.logger.info("Thread started.. ");
-			prepareRoute(
-					srcIp,
-					contentSourceUrl.substring(0,
-							contentSourceUrl.indexOf(":")),
-					TransportPort.of(flowId));
+			prepareRoute(srcIp, contentSourceUrl.substring(0,
+					contentSourceUrl.indexOf(":")), TransportPort.of(flowId));
 			IcnModule.logger.info("Task finished.. ");
 		}
-		
+
 	}
 
 }

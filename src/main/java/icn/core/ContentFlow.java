@@ -11,15 +11,17 @@ import com.fasterxml.jackson.dataformat.yaml.snakeyaml.nodes.NodeTuple;
 
 public class ContentFlow {
 	
+	
 	private int flowId;
 	private Match flowMatch;
 	private List<NodePortTuple> route;
 
 	public ContentFlow(int flowId) {
 		super();
+		
 		this.flowId = flowId;
 	}
-	
+
 	public List<NodePortTuple> getRoute() {
 		return route;
 	}

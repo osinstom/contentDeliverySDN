@@ -6,20 +6,20 @@ public class ContentDesc {
 	
 	private String contentId;
 	private List<Location> locations;
-	private String type;
+	private Long bandwidth;
 	
 	public ContentDesc(String contentId, List<Location> locations,
-			String type) {
+			String bandwidth) {
 		super();
 		this.contentId = contentId;
 		this.locations = locations;
-		this.type = type;
+		this.bandwidth = Long.parseLong(bandwidth);
 	}
 
 	@Override
 	public String toString() {
 		return "ContentDesc [contentId=" + contentId + ", locations="
-				+ locations + ", type=" + type + "]";
+				+ locations + ", bandwidth=" + bandwidth + "]";
 	}
 
 	public List<Location> getLocations() {
@@ -38,15 +38,14 @@ public class ContentDesc {
 		this.contentId = contentId;
 	}
 
-	
-	public String getType() {
-		return type;
+	public Long getBandwidth() {
+		return bandwidth;
 	}
 
-	public void setType(String type) {
-		this.type = type;
+	public void setBandwidth(Long bandwidth) {
+		this.bandwidth = bandwidth;
 	}
-	
+
 	public static class Location {
 		
 		public final String ipAddr;

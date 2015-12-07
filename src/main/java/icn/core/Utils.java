@@ -92,8 +92,8 @@ public class Utils {
 
 	public static ContentDesc getContentDesc(String contentId) {
 
-		String type = null;
-		String description = null;
+		String bandwidth = null;
+		
 		List<Location> locations = new ArrayList<ContentDesc.Location>();
 
 		try {
@@ -115,10 +115,7 @@ public class Utils {
 
 					if (element.getAttribute("id").equals(contentId)) {
 
-						type = element.getElementsByTagName("type").item(0)
-								.getTextContent();
-						description = element
-								.getElementsByTagName("description").item(0)
+						bandwidth = element.getElementsByTagName("bandwidth").item(0)
 								.getTextContent();
 
 						NodeList locationNodes = element
@@ -140,7 +137,7 @@ public class Utils {
 
 						}
 						
-						return new ContentDesc(contentId, locations, type);
+						return new ContentDesc(contentId, locations, bandwidth);
 					}
 				}
 

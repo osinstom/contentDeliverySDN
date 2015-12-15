@@ -219,11 +219,14 @@ public class IcnEngine extends IcnForwarding {
 		IDevice srcDev = null;
 		IDevice dstDev = null;
 
-		// for (IDevice device : deviceService.getAllDevices())
-		// if(device.getIPv4Addresses() != null)
-		// if (device.getIPv4Addresses()[0].toString().equals(srcIp))
-		// srcDev = device;
-
+		for (IDevice device : deviceService.getAllDevices())
+			if (device.getIPv4Addresses() != null
+					&& device.getIPv4Addresses().length != 0) {
+				IcnModule.logger.info("src\n" + device.getIPv4Addresses()[0]
+						+ " " + srcIp);
+				if (device.getIPv4Addresses()[0].toString().equals(srcIp))
+					srcDev = device;
+			}
 		if (locations.size() == 1)
 			return locations.get(0);
 		else {
@@ -236,22 +239,27 @@ public class IcnEngine extends IcnForwarding {
 			List<Route> routes = new ArrayList<Route>();
 			for (Location potential : potentials) {
 
-				// for (IDevice device : deviceService.getAllDevices())
-				// if (device.getIPv4Addresses()[0].toString().equals(
-				// potential.getIpAddr()))
-				// dstDev = device;
-				//
-				// ArrayList<Route> rs = mpathRoutingService.getMultiRoute(
-				// srcDev.getAttachmentPoints()[0].getSwitchDPID(),
-				// dstDev.getAttachmentPoints()[0].getSwitchDPID())
-				// .getRoutes();
-				//
-				// for(Route r : rs) {
-				// if(bottleneckBandwidth(r) < minBandwidth)
-				// rs.remove(r);
-				// }
+				for (IDevice device : deviceService.getAllDevices()) {
+					if (device.getIPv4Addresses() != null
+							&& device.getIPv4Addresses().length != 0) {
+						IcnModule.logger.info(device.getIPv4Addresses()[0]
+								.toString() + " " + potential.getIpAddr());
+						if (device.getIPv4Addresses()[0].toString().equals(
+								potential.getIpAddr())) {
+							dstDev = device;
+							break;
+						}
+					}
+				}
+
+//				ArrayList<Route> rs = mpathRoutingService.getMultiRoute(
+//						srcDev.getAttachmentPoints()[0].getSwitchDPID(),
+//						dstDev.getAttachmentPoints()[0].getSwitchDPID())
+//						.getRoutes();
+//				routes.addAll(rs);
 
 			}
+
 		}
 		return bestLocation;
 
@@ -268,9 +276,9 @@ public class IcnEngine extends IcnForwarding {
 		IDevice dstDevice = null;
 
 		for (IDevice device : deviceService.getAllDevices()) {
-//			IcnModule.logger
-//					.info("Device MAC: " + device.getMACAddressString());
-//			IcnModule.logger.info("Device: \n" + device.toString());
+			IcnModule.logger
+					.info("Device MAC: " + device.getMACAddressString());
+			IcnModule.logger.info("Device: \n" + device.toString());
 			if (device.getIPv4Addresses().length != 0
 					&& device.getIPv4Addresses()[0] != null) {
 				if (device.getIPv4Addresses()[0].equals(IPv4Address.of(srcIp)))

@@ -152,8 +152,8 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 			ARP arp = (ARP) eth.getPayload();
 			if (arp.getTargetProtocolAddress().equals(VIP))
 				OFUtils.pushARP(sw, eth, msg, IcnModule.VMAC);
-			else 
-				IcnEngine.getInstance().flood(sw, eth, msg);
+//			else 
+//				IcnEngine.getInstance().flood(sw, eth, msg);
 		}
 
 		if (eth.getEtherType().equals(EthType.IPv4)) {

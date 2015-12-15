@@ -98,6 +98,7 @@ import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IPv6Address;
+import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.VlanVid;
@@ -1181,8 +1182,10 @@ public class DeviceManagerImpl implements IDeviceService, IOFMessageListener, IT
 	protected Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx) {
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+	
 		// Extract source entity information
 		Entity srcEntity = getSourceEntityFromPacket(eth, sw.getId(), inPort);
+		
 		if (srcEntity == null) {
 			cntInvalidSource.increment();
 			return Command.STOP;
@@ -1293,6 +1296,9 @@ public class DeviceManagerImpl implements IDeviceService, IOFMessageListener, IT
 			if ((arp.getProtocolType() == ARP.PROTO_TYPE_IP) && (arp.getSenderHardwareAddress().equals(dlAddr))) {
 				return arp.getSenderProtocolAddress();
 			}
+		} else if(eth.getPayload() instanceof IPv4) {
+			IPv4 ipv4 = (IPv4) eth.getPayload();
+			return ipv4.getSourceAddress();
 		}
 		return IPv4Address.NONE;
 	}

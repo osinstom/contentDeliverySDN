@@ -208,24 +208,34 @@ public class Monitoring implements IOFMessageListener{
 			@SuppressWarnings("unchecked")
 			List<OFPortStatsReply> stats = (List<OFPortStatsReply>) future
 					.get(10, TimeUnit.SECONDS);
-			long currTimestamp = new Date().getTime();
+			
 			for(OFPortStatsReply reply : stats) {
 				for(OFPortStatsEntry entry : reply.getEntries()) {
+					long currTimestamp = new Date().getTime();
 					long bytes = entry.getTxBytes().getValue() + entry.getRxBytes().getValue(); 
-					if(link.getPrevTimestamp()!=0 && link.getPrevBytes()!=0) {
-						//IcnModule.logger.info("Bytes= " + bytes + " PrevBytes= " + link.getPrevBytes());
-						long bandwidth = (bytes - link.getPrevBytes())/(currTimestamp - link.getPrevTimestamp()) * 8;
-						if(bandwidth!=0)
-							IcnModule.logger.info("Bandiwidth = " + bandwidth + " for link " + link);
-						link.setCurrBandwidth(bandwidth);
-					}
 					
+					if(link.getPrevTimestamp()!=0 && link.getPrevBytes()!=0) {
+						long equal = bytes - link.getPrevBytes();
+						if(equal != 0) {
+						IcnModule.logger.info("Link: " + link);
+						IcnModule.logger.info("Odejmowanie bajtow: " + bytes + " - " + link.getPrevBytes() + " = " + equal);
+						long timeEqual = currTimestamp - link.getPrevTimestamp();
+						IcnModule.logger.info("ODejmowanie czasow: " + currTimestamp + " - " + link.getPrevTimestamp() + " = " + timeEqual);
+						}
+						double bandwidth = (((bytes - link.getPrevBytes())/(currTimestamp - link.getPrevTimestamp())) * 8 )/ 1000;
+						if(bandwidth!=0) {
+							IcnModule.logger.info("Bytes= " + bytes + " PrevBytes= " + link.getPrevBytes());
+							IcnModule.logger.info("Timestamp=" + currTimestamp + " PrevTime=" + link.getPrevTimestamp());
+							IcnModule.logger.info("Bandiwidth = " + bandwidth + " for link " + link);
+						}
+						//link.setCurrBandwidth(bandwidth);
+						
+					} 
 					link.setPrevTimestamp(currTimestamp);
 					link.setPrevBytes(bytes);
+					
 				}
 			}
-			if(link.getAverageBandwidth() != 0) 
-				IcnModule.logger.info("Average bandwidth=" + link.getAverageBandwidth() + " for link " + link);
 			
 			
 		} catch (Exception e) { throw e; }

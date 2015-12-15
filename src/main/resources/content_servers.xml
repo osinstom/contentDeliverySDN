@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <servers>
-	<server name="h2">
-		<MacAddress>00:00:00:00:00:02</MacAddress>
-		<IPv4Address>10.0.0.2</IPv4Address>
-		<SwitchDPID>00:00:00:00:00:00:00:05</SwitchDPID>
-		<SwitchPort>1</SwitchPort>
-	</server>
-	<server name="h3">
-		<MacAddress>00:00:00:00:00:03</MacAddress>
-		<IPv4Address>10.0.0.3</IPv4Address>
-		<SwitchDPID>00:00:00:00:00:00:00:05</SwitchDPID>
+	<server name="cs1">
+		<MacAddress>00:00:00:00:00:11</MacAddress>
+		<IPv4Address>10.0.1.1</IPv4Address>
+		<SwitchDPID>00:00:00:00:00:00:00:04</SwitchDPID>
 		<SwitchPort>2</SwitchPort>
 	</server>
-	<server name="h4">
+	<server name="cs2">
+		<MacAddress>00:00:00:00:00:12</MacAddress>
+		<IPv4Address>10.0.1.2</IPv4Address>
+		<SwitchDPID>00:00:00:00:00:00:00:07</SwitchDPID>
+		<SwitchPort>1</SwitchPort>
+	</server>
+	<!--  >server name="h4">
 		<MacAddress>00:00:00:00:00:04</MacAddress>
 		<IPv4Address>10.0.0.4</IPv4Address>
 		<SwitchDPID>00:00:00:00:00:00:00:03</SwitchDPID>
 		<SwitchPort>1</SwitchPort>
-	</server>
+	</server -->
 </servers>

@@ -137,8 +137,9 @@ public class IcnEngine extends IcnForwarding {
 				OFUtils.sendSynAck(sw, msg, ipv4, eth, tcp);
 			}
 		} else {
-			IcnModule.logger.info("Route to dest request: "
-					+ tcp.getSourcePort() + " " + tcp.getDestinationPort());
+			IcnModule.logger.info("From sw: " + sw.getId()
+					+ " Route to dest request: " + tcp.getSourcePort()
+					+ " " + tcp.getDestinationPort() + " " + ipv4.getDestinationAddress());
 			String contentFlowId = ipv4.getSourceAddress().toString() + ":"
 					+ ipv4.getDestinationAddress();
 			IcnModule.logger.info(Monitoring.getInstance()
@@ -147,17 +148,15 @@ public class IcnEngine extends IcnForwarding {
 			if (Monitoring.getInstance().getFlowIds(contentFlowId)
 					.contains(tcp.getDestinationPort().getPort())) {
 
-				IcnModule.logger.info("From sw: " + sw.getId()
-						+ " Route to dest request: " + tcp.getSourcePort()
-						+ " " + tcp.getDestinationPort());
+				
 
 				setNatFlow(sw, msg, ipv4.getSourceAddress(),
 						ipv4.getDestinationAddress(), tcp.getSourcePort(),
 						tcp.getDestinationPort());
 
 			} else {
-				OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
-						OFUtils.HTTP_BADREQUEST);
+//				OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
+//						OFUtils.HTTP_BADREQUEST);
 			}
 
 		}
@@ -171,7 +170,7 @@ public class IcnEngine extends IcnForwarding {
 			Random rn = new Random();
 			int range = 65535 - 49152 + 1;
 			flowId = rn.nextInt(range) + 49152;
-			IcnModule.logger.info("FlowId: " + flowId);
+
 		} while (flowId == 0
 				|| Monitoring.getInstance().getFlowIds(contentFlowId)
 						.contains(flowId));
@@ -222,8 +221,8 @@ public class IcnEngine extends IcnForwarding {
 		for (IDevice device : deviceService.getAllDevices())
 			if (device.getIPv4Addresses() != null
 					&& device.getIPv4Addresses().length != 0) {
-				IcnModule.logger.info("src\n" + device.getIPv4Addresses()[0]
-						+ " " + srcIp);
+//				IcnModule.logger.info("src\n" + device.getIPv4Addresses()[0]
+//						+ " " + srcIp);
 				if (device.getIPv4Addresses()[0].toString().equals(srcIp))
 					srcDev = device;
 			}
@@ -242,8 +241,8 @@ public class IcnEngine extends IcnForwarding {
 				for (IDevice device : deviceService.getAllDevices()) {
 					if (device.getIPv4Addresses() != null
 							&& device.getIPv4Addresses().length != 0) {
-						IcnModule.logger.info(device.getIPv4Addresses()[0]
-								.toString() + " " + potential.getIpAddr());
+//						IcnModule.logger.info(device.getIPv4Addresses()[0]
+//								.toString() + " " + potential.getIpAddr());
 						if (device.getIPv4Addresses()[0].toString().equals(
 								potential.getIpAddr())) {
 							dstDev = device;

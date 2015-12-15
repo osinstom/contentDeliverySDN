@@ -108,10 +108,12 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
         }
 
     }
+    
     public void clearRoutingCache() {
          flowcache.invalidateAll();
          pathcache.invalidateAll();
     }
+    
     public void removeLink(LinkWithCost link) {
         DatapathId dpid = link.getSrcDpid();
 
@@ -331,11 +333,23 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
     public void modifyLinkCost(DatapathId srcDpid,DatapathId dstDpid,short cost) {
         updateLinkCost(srcDpid,dstDpid,cost);
         updateLinkCost(dstDpid,srcDpid,cost);
-
+        
         clearRoutingCache();
 
     }
-
+    
+    @Override
+    public void modifyLinkCost(DatapathId dpid, OFPort port, int cost) {
+    	
+    	LinkWithCost linkWithCosts = getLinkWithCosts(dpid, port);
+    	if(linkWithCosts==null) 
+    		return;
+    	//IcnModule.logger.info("Cost for link [" + linkWithCosts.getSrcDpid().toString() + ":" + linkWithCosts.getDstDpid().toString() + "] = " + cost);
+    	updateLinkCost(linkWithCosts.getSrcDpid(),linkWithCosts.getDstDpid(),cost);
+        updateLinkCost(linkWithCosts.getDstDpid(),linkWithCosts.getSrcDpid(),cost);
+        
+        clearRoutingCache();
+    }
 
     //
     //
@@ -402,4 +416,19 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
         topologyService.addListener(this);
         //restApi.addRestletRoutable(new MultiPathRoutingWebRoutable());
     }
+	
+    
+	public LinkWithCost getLinkWithCosts(DatapathId dpid, OFPort port) {
+		
+		for(DatapathId d : dpidLinks.keySet()) {
+			for(LinkWithCost link : dpidLinks.get(d)) {
+				if(link.getSrcDpid().equals(dpid) && link.getSrcPort().equals(port)) {
+					return link;
+				}
+			}
+		}
+		
+		return null;
+		
+	}
 }

@@ -48,9 +48,9 @@ import net.floodlightcontroller.util.MatchUtils;
 
 public class IcnForwarding {
 
-	public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 2; // in seconds
+	public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 3; // in seconds
 	public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 2; // infinite
-	public static int FLOWMOD_DEFAULT_PRIORITY = 1; // 0 is the default
+	public static int FLOWMOD_DEFAULT_PRIORITY = Integer.MAX_VALUE; // 0 is the default
 													// table-miss flow in
 													// OF1.3+, so we need to use
 													// 1
@@ -314,6 +314,7 @@ public class IcnForwarding {
 					.output(p, Integer.MAX_VALUE));
 		}
 		pob.setActions(actions);
+		
 		// log.info("actions {}",actions);
 		// set buffer-id, in-port and packet-data based on packet-in
 		pob.setBufferId(OFBufferId.NO_BUFFER);
@@ -373,6 +374,7 @@ public class IcnForwarding {
 				.setActions(actions)
 				.setBufferId(OFBufferId.NO_BUFFER)
 				.setFlags(flags)
+				.setPriority(FLOWMOD_DEFAULT_PRIORITY)
 				.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
 				.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
 				.setMatch(
@@ -383,7 +385,7 @@ public class IcnForwarding {
 								.setExact(MatchField.IPV4_DST, dstIp)
 								.setExact(MatchField.TCP_SRC, sourcePort)
 								.setExact(MatchField.TCP_DST, destinationPort)
-								.build()).setPriority(1).build();
+								.build()).build();
 
 		ArrayList<OFMessage> messages = new ArrayList<OFMessage>();
 		messages.add(natFlow);
@@ -405,6 +407,7 @@ public class IcnForwarding {
 				.buildFlowAdd()
 				.setActions(revActions)
 				.setFlags(flags)
+				.setPriority(FLOWMOD_DEFAULT_PRIORITY)
 				.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
 				.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
 				.setBufferId(OFBufferId.NO_BUFFER)
@@ -418,7 +421,7 @@ public class IcnForwarding {
 								.setExact(MatchField.TCP_SRC,
 										TransportPort.of(80))
 								.setExact(MatchField.TCP_DST, destinationPort)
-								.build()).setPriority(1).build();
+								.build()).build();
 		messages.add(revNatFlow);
 
 		OFPacketOut po = sw.getOFFactory().buildPacketOut()

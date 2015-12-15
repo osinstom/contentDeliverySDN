@@ -30,6 +30,7 @@ import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.TCP;
 import net.floodlightcontroller.routing.IRoutingService;
+import net.floodlightcontroller.statistics.IStatisticsService;
 import net.floodlightcontroller.topology.ITopologyService;
 
 import org.projectfloodlight.openflow.protocol.OFMessage;
@@ -51,10 +52,11 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 	public IOFSwitchService switchService = null;
 	public IRoutingService routingService = null;
-	public ITopologyService topologyService = null;
+	public static ITopologyService topologyService = null;
 	public static IDeviceService deviceService = null;
-	public IMultiPathRoutingService mpathRoutingService = null;
-	private ILinkDiscoveryService linkDiscoveryService = null;
+	public static IMultiPathRoutingService mpathRoutingService = null;
+	private static ILinkDiscoveryService linkDiscoveryService = null;
+	private IStatisticsService statisticsService = null;
 
 	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
 	protected final static MacAddress VMAC = MacAddress.of("99:99:99:99:99:99");
@@ -96,6 +98,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		mpathRoutingService = context
 				.getServiceImpl(IMultiPathRoutingService.class);
 		linkDiscoveryService = context.getServiceImpl(ILinkDiscoveryService.class);
+		statisticsService = context.getServiceImpl(IStatisticsService.class);
 		logger = LoggerFactory.getLogger(IcnModule.class);
 
 	}
@@ -107,6 +110,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		Monitoring.getInstance().setSwitchService(switchService);
 		Monitoring.getInstance().setLinkDiscoveryService(linkDiscoveryService);
 		Monitoring.getInstance().setTopologyService(topologyService);
+		Monitoring.getInstance().setStatisticsService(statisticsService);
 		floodlightProvider.addOFMessageListener(OFType.FLOW_REMOVED, Monitoring.getInstance());
 		
 		switchService.addOFSwitchListener(new SwitchListener(switchService));

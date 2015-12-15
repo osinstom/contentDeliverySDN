@@ -29,3 +29,4 @@ net.floodlightcontroller.dhcpserver.DHCPServer
 net.floodlightcontroller.learningswitch.LearningSwitch
 net.floodlightcontroller.multipathrouting.MultiPathRouting
 icn.core.IcnModule
+net.floodlightcontroller.statistics.StatisticsCollector

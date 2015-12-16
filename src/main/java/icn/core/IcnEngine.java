@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
@@ -84,11 +85,10 @@ public class IcnEngine extends IcnForwarding {
 			TCP tcp) {
 
 		String payload = new String(((Data) tcp.getPayload()).serialize());
-
+		String srcIp = ipv4.getSourceAddress().toString(); // ContentRequest
 		if (ipv4.getDestinationAddress().equals(IcnModule.VIP)) {
 			if (payload.contains("HTTP") && payload.contains("GET")) { // HTTP
-				IcnModule.logger.info(payload); // GET =
-				String srcIp = ipv4.getSourceAddress().toString(); // ContentRequest
+				// IcnModule.logger.info(payload); // GET =
 
 				String contentSourceUrl = getContentSource(
 						Utils.getContentId(payload), srcIp);
@@ -138,8 +138,9 @@ public class IcnEngine extends IcnForwarding {
 			}
 		} else {
 			IcnModule.logger.info("From sw: " + sw.getId()
-					+ " Route to dest request: " + tcp.getSourcePort()
-					+ " " + tcp.getDestinationPort() + " " + ipv4.getDestinationAddress());
+					+ " Route to dest request: " + tcp.getSourcePort() + " "
+					+ tcp.getDestinationPort() + " "
+					+ ipv4.getDestinationAddress());
 			String contentFlowId = ipv4.getSourceAddress().toString() + ":"
 					+ ipv4.getDestinationAddress();
 			IcnModule.logger.info(Monitoring.getInstance()
@@ -148,15 +149,13 @@ public class IcnEngine extends IcnForwarding {
 			if (Monitoring.getInstance().getFlowIds(contentFlowId)
 					.contains(tcp.getDestinationPort().getPort())) {
 
-				
-
 				setNatFlow(sw, msg, ipv4.getSourceAddress(),
 						ipv4.getDestinationAddress(), tcp.getSourcePort(),
 						tcp.getDestinationPort());
 
 			} else {
-//				OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
-//						OFUtils.HTTP_BADREQUEST);
+				// OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
+				// OFUtils.HTTP_BADREQUEST);
 			}
 
 		}
@@ -177,28 +176,6 @@ public class IcnEngine extends IcnForwarding {
 		return flowId;
 	}
 
-	private void updateContentStats(String contentId, IPv4Address srcIp) {
-
-		if (!contentRequestsStats.containsKey(contentId)) {
-			HashMap<IPv4Address, Integer> inner = new HashMap<IPv4Address, Integer>();
-			inner.put(srcIp, 1);
-			contentRequestsStats.put(contentId, inner);
-		} else if (contentRequestsStats.containsKey(contentId)
-				&& !contentRequestsStats.get(contentId).containsKey(srcIp)) {
-			contentRequestsStats.get(contentId).put(srcIp, 1);
-		} else {
-			contentRequestsStats.get(contentId).put(srcIp,
-					contentRequestsStats.get(contentId).get(srcIp) + 1);
-		}
-
-		IcnModule.logger.info(contentRequestsStats.toString());
-		IcnModule.logger.info("CONTENT POPULARITY STATS: \nContent ["
-				+ contentId + "] was requested "
-				+ contentRequestsStats.get(contentId).get(srcIp)
-				+ " times from " + srcIp);
-
-	}
-
 	private String getContentSource(String contentId, String srcIp) {
 
 		ContentDesc contentDesc = Utils.getContentDesc(contentId);
@@ -215,50 +192,42 @@ public class IcnEngine extends IcnForwarding {
 			String srcIp, Long minBandwidth) {
 
 		Location bestLocation = null;
-		IDevice srcDev = null;
+		IDevice srcDev = Utils.getDevice(srcIp);
 		IDevice dstDev = null;
 
-		for (IDevice device : deviceService.getAllDevices())
-			if (device.getIPv4Addresses() != null
-					&& device.getIPv4Addresses().length != 0) {
-//				IcnModule.logger.info("src\n" + device.getIPv4Addresses()[0]
-//						+ " " + srcIp);
-				if (device.getIPv4Addresses()[0].toString().equals(srcIp))
-					srcDev = device;
-			}
 		if (locations.size() == 1)
 			return locations.get(0);
 		else {
 			List<Location> potentials = new ArrayList<ContentDesc.Location>();
-			for (Location location : locations)
+			for (Location location : locations) {
 				if (location.isLoaded() == false) {
 					bestLocation = location;
 					potentials.add(location);
 				}
+			}
+			Map<Location, List<Route>> locAndRoutes = new HashMap<ContentDesc.Location, List<Route>>();
 			List<Route> routes = new ArrayList<Route>();
 			for (Location potential : potentials) {
 
-				for (IDevice device : deviceService.getAllDevices()) {
-					if (device.getIPv4Addresses() != null
-							&& device.getIPv4Addresses().length != 0) {
-//						IcnModule.logger.info(device.getIPv4Addresses()[0]
-//								.toString() + " " + potential.getIpAddr());
-						if (device.getIPv4Addresses()[0].toString().equals(
-								potential.getIpAddr())) {
-							dstDev = device;
-							break;
-						}
-					}
-				}
+				dstDev = Utils.getDevice(potential.getIpAddr());
 
-//				ArrayList<Route> rs = mpathRoutingService.getMultiRoute(
-//						srcDev.getAttachmentPoints()[0].getSwitchDPID(),
-//						dstDev.getAttachmentPoints()[0].getSwitchDPID())
-//						.getRoutes();
-//				routes.addAll(rs);
+				ArrayList<Route> rs = mpathRoutingService.getMultiRoute(
+						srcDev.getAttachmentPoints()[0].getSwitchDPID(),
+						dstDev.getAttachmentPoints()[0].getSwitchDPID())
+						.getRoutes();
+				locAndRoutes.put(potential, rs);
 
 			}
-
+			
+			IcnModule.logger.info("Potential routes: \n");
+			for(Entry<Location, List<Route>> entry : locAndRoutes.entrySet()) {
+				IcnModule.logger.info("To location: " + entry.getKey());
+				for(Route r : entry.getValue())
+					IcnModule.logger.info(r.toString());
+			}
+			
+			
+			
 		}
 		return bestLocation;
 
@@ -271,22 +240,9 @@ public class IcnEngine extends IcnForwarding {
 
 	public void prepareRoute(String srcIp, String dstIp, TransportPort srcPort) {
 
-		IDevice srcDevice = null;
-		IDevice dstDevice = null;
+		IDevice srcDevice = Utils.getDevice(srcIp);
+		IDevice dstDevice = Utils.getDevice(dstIp);
 
-		for (IDevice device : deviceService.getAllDevices()) {
-			IcnModule.logger
-					.info("Device MAC: " + device.getMACAddressString());
-			IcnModule.logger.info("Device: \n" + device.toString());
-			if (device.getIPv4Addresses().length != 0
-					&& device.getIPv4Addresses()[0] != null) {
-				if (device.getIPv4Addresses()[0].equals(IPv4Address.of(srcIp)))
-					srcDevice = device;
-				else if (device.getIPv4Addresses()[0].equals(IPv4Address
-						.of(dstIp)))
-					dstDevice = device;
-			}
-		}
 		IcnModule.logger.info("SRC DEVICE: " + srcDevice.toString());
 		IcnModule.logger.info("DST DEVICE: " + dstDevice.toString());
 

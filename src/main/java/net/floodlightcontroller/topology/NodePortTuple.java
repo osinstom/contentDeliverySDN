@@ -35,7 +35,16 @@ public class NodePortTuple implements Comparable<NodePortTuple> {
     protected DatapathId nodeId; // switch DPID
     protected OFPort portId; // switch port id
 
-    /**
+    private int availableBand = 0; // in kb/s
+    public int getAvailableBand() {
+		return availableBand;
+	}
+
+	public void setAvailableBand(int availableBand) {
+		this.availableBand = availableBand;
+	}
+
+	/**
      * Creates a NodePortTuple
      * @param nodeId The DPID of the switch
      * @param portId The port of the switch

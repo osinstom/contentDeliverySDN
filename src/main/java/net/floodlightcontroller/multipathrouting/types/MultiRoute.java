@@ -1,5 +1,7 @@
 package net.floodlightcontroller.multipathrouting.types;
 
+import icn.core.IcnModule;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -25,6 +27,15 @@ public class MultiRoute {
     }
 
 	public ArrayList<Route> getRoutes() {
+		
+		List<Route> tmp = new ArrayList<Route>();
+		for(Route route : routes) {
+			tmp.add(IcnModule.statisticsService.getRouteWithCost(route));
+		}
+		
+		routes.clear();
+		routes.addAll(tmp);
+		
 		return routes;
 	}
 

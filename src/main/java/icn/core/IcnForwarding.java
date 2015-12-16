@@ -149,6 +149,7 @@ public class IcnForwarding {
 				// flags.add(OFFlowModFlags.SEND_FLOW_REM);
 				// fmb.setFlags(flags);
 				// }
+				
 				Set<OFFlowModFlags> flags = new HashSet<>();
 				flags.add(OFFlowModFlags.SEND_FLOW_REM);
 				fmb.setMatch(mb.build()).setActions(actions)

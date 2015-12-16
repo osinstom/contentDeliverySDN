@@ -32,6 +32,7 @@ import org.projectfloodlight.openflow.types.VlanVid;
  * @author readams
  */
 public interface IDevice {
+	
     /**
      * Get the primary key for this device.
      * @return the primary key

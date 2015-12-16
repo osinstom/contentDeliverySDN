@@ -52,6 +52,11 @@ public class ContentDesc {
 		public final String localPath;
 		private boolean isLoaded;
 		
+		@Override
+		public String toString() {
+			return "Location [ipAddr=" + ipAddr + "]";
+		}
+
 		public boolean isLoaded() {
 			return isLoaded;
 		}

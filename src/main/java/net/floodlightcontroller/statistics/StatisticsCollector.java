@@ -39,6 +39,7 @@ import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.restserver.IRestApiService;
+import net.floodlightcontroller.routing.Route;
 import net.floodlightcontroller.statistics.web.SwitchStatisticsWebRoutable;
 import net.floodlightcontroller.threadpool.IThreadPoolService;
 import net.floodlightcontroller.topology.NodePortTuple;
@@ -46,6 +47,8 @@ import net.floodlightcontroller.topology.NodePortTuple;
 public class StatisticsCollector implements IFloodlightModule, IStatisticsService {
 	private static final Logger log = LoggerFactory.getLogger(StatisticsCollector.class);
 
+	public static final int LINK_SPEED = 10000; // kb/s --> 10 Mb/s
+	
 	private static IOFSwitchService switchService;
 	private static IThreadPoolService threadPoolService;
 	private static IRestApiService restApiService;
@@ -60,7 +63,7 @@ public class StatisticsCollector implements IFloodlightModule, IStatisticsServic
 	
 	private static final String INTERVAL_PORT_STATS_STR = "collectionIntervalPortStatsSeconds";
 	private static final String ENABLED_STR = "enable";
-
+	
 	private static final HashMap<NodePortTuple, SwitchPortBandwidth> portStats = new HashMap<NodePortTuple, SwitchPortBandwidth>();
 	private static final HashMap<NodePortTuple, SwitchPortBandwidth> tentativePortStats = new HashMap<NodePortTuple, SwitchPortBandwidth>();
 
@@ -132,7 +135,7 @@ public class StatisticsCollector implements IFloodlightModule, IStatisticsServic
 							long tx = (txBytesCounted.getValue() * BITS_PER_BYTE) / timeDifSec;
 							
 							long cost = (rx + tx)/1000;
-							IcnModule.mpathRoutingService.modifyLinkCost(npt.getNodeId(), npt.getPortId(), (int)cost);
+							//IcnModule.mpathRoutingService.modifyLinkCost(npt.getNodeId(), npt.getPortId(), (int)cost);
 							
 							
 						} else { /* initialize */
@@ -471,5 +474,28 @@ public class StatisticsCollector implements IFloodlightModule, IStatisticsServic
 			}
 		}
 		return values;
+	}
+
+	@Override
+	public Route getRouteWithCost(Route route) {
+		int cost = 0;
+		int bottleneck = Integer.MAX_VALUE;
+		for(int i=0; i<route.getPath().size(); i += 2) {
+			
+			SwitchPortBandwidth bandwidth = getBandwidthConsumption(route.getPath().get(i).getNodeId(),route.getPath().get(i).getPortId());
+			if(bandwidth!= null) {
+			long linkCost = bandwidth.getBitsPerSecondRx().getValue() + bandwidth.getBitsPerSecondTx().getValue();
+			int availableBand = LINK_SPEED - (int)linkCost/1000;
+			if(availableBand < bottleneck) 
+				bottleneck = availableBand;
+			
+			route.getPath().get(i).setAvailableBand(availableBand);
+			cost = cost + (int)linkCost/1000;
+			}
+		}
+		route.setTotalCost(cost);	
+		route.setBottleneckBandwidth(bottleneck);
+		
+		return route;
 	}
 }

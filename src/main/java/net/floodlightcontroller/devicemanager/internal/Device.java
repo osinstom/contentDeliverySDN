@@ -61,6 +61,8 @@ import net.floodlightcontroller.topology.ITopologyService;
 public class Device implements IDevice {
 	protected static Logger log = LoggerFactory.getLogger(Device.class);
 
+	
+	
 	private final Long deviceKey;
 	protected final DeviceManagerImpl deviceManager;
 

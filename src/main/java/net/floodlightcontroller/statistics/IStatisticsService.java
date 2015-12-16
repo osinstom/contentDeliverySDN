@@ -6,6 +6,7 @@ import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.OFPort;
 
 import net.floodlightcontroller.core.module.IFloodlightService;
+import net.floodlightcontroller.routing.Route;
 import net.floodlightcontroller.topology.NodePortTuple;
 
 public interface IStatisticsService extends IFloodlightService {
@@ -15,4 +16,6 @@ public interface IStatisticsService extends IFloodlightService {
 	public Map<NodePortTuple, SwitchPortBandwidth> getBandwidthConsumption();
 	
 	public void collectStatistics(boolean collect);
+
+	public Route getRouteWithCost(Route route);
 }

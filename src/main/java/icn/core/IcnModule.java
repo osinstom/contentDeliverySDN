@@ -56,14 +56,13 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public static IDeviceService deviceService = null;
 	public static IMultiPathRoutingService mpathRoutingService = null;
 	private static ILinkDiscoveryService linkDiscoveryService = null;
-	private IStatisticsService statisticsService = null;
+	public static IStatisticsService statisticsService = null;
 
 	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
 	protected final static MacAddress VMAC = MacAddress.of("99:99:99:99:99:99");
 
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
-		
 		return null;
 	}
 
@@ -100,7 +99,6 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		linkDiscoveryService = context.getServiceImpl(ILinkDiscoveryService.class);
 		statisticsService = context.getServiceImpl(IStatisticsService.class);
 		logger = LoggerFactory.getLogger(IcnModule.class);
-
 	}
 
 	@Override

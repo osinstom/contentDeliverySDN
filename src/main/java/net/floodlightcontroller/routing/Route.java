@@ -33,8 +33,27 @@ public class Route implements Comparable<Route> {
     protected RouteId id;
     protected List<NodePortTuple> switchPorts;
     protected int routeCount;
+    
+    private int bottleneckBandwidth = 0;
+    private int totalCost = 0;
 
-    public Route(RouteId id, List<NodePortTuple> switchPorts) {
+    public int getBottleneckBandwidth() {
+		return bottleneckBandwidth;
+	}
+
+	public void setBottleneckBandwidth(int bottleneckBandwidth) {
+		this.bottleneckBandwidth = bottleneckBandwidth;
+	}
+
+	public int getTotalCost() {
+		return totalCost;
+	}
+
+	public void setTotalCost(int totalCost) {
+		this.totalCost = totalCost;
+	}
+
+	public Route(RouteId id, List<NodePortTuple> switchPorts) {
         super();
         this.id = id;
         this.switchPorts = switchPorts;
@@ -123,7 +142,7 @@ public class Route implements Comparable<Route> {
 
     @Override
     public String toString() {
-        return "Route [id=" + id + ", switchPorts=" + switchPorts + "]";
+        return "Route [Cost=" + totalCost + ",bottleneck=" + bottleneckBandwidth + " kb/s, switchPorts=" + switchPorts + "]";
     }
 
     /**

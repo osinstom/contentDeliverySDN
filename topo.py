@@ -22,10 +22,10 @@ def IcnNetwork():
     #Adding content servers
     cs1 = net.addHost('cs1', ip="10.0.1.1", mac="00:00:00:00:00:11")
     cs2 = net.addHost('cs2', ip="10.0.1.2", mac="00:00:00:00:00:12")
-    #cs3 = net.addHost('cs3')
+    cs3 = net.addHost('cs3', ip="10.0.1.3", mac="00:00:00:00:00:13")
     #cs4 = net.addHost('cs4')
     #cs5 = net.addHost('cs5')
-    cses = [cs1, cs2]
+    cses = [cs1, cs2, cs3]
     #Adding switches
     s1 = net.addSwitch('s1', dpid="0000000000000001")
     s2 = net.addSwitch('s2', dpid="0000000000000002")
@@ -44,7 +44,7 @@ def IcnNetwork():
     #Adding switch-server links
     net.addLink(s4, cs1)
     net.addLink(s7, cs2)
-    
+    net.addLink(s5, cs3)
     #Adding switch-switch links
     net.addLink(s1, s2)
     net.addLink(s2, s4)
@@ -52,6 +52,7 @@ def IcnNetwork():
     net.addLink(s2, s3)
     net.addLink(s3, s4)
     net.addLink(s3, s1)
+    net.addLink(s3, s5)
     net.addLink(s5, s6)
     net.addLink(s3, s7)
     net.addLink(s6, s7)

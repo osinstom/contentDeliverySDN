@@ -20,6 +20,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.forwarding.Forwarding;
 import net.floodlightcontroller.routing.Route;
@@ -182,6 +183,24 @@ public class Utils {
 		}
 		
 		return reversed;
+	}
+	
+	public static IDevice getDevice(String ip) {
+		
+		for (IDevice device : IcnModule.deviceService.getAllDevices()) {
+//			IcnModule.logger
+//					.info("Device MAC: " + device.getMACAddressString());
+//			IcnModule.logger.info("Device: \n" + device.toString());
+			if (device.getIPv4Addresses().length != 0
+					&& device.getIPv4Addresses()[0] != null) {
+				if (device.getIPv4Addresses()[0].equals(IPv4Address.of(ip)))
+					return device;
+			}
+		}
+		
+		return null;
+		
+		
 	}
 
 }

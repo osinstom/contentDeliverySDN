@@ -142,7 +142,7 @@ public class Route implements Comparable<Route> {
 
     @Override
     public String toString() {
-        return "Route [Cost=" + totalCost + ",bottleneck=" + bottleneckBandwidth + " kb/s, switchPorts=" + switchPorts + "]";
+        return "Route [Cost=" + totalCost + ",bottleneck=" + bottleneckBandwidth + " kb/s, Length=" +  switchPorts.size() + ", switchPorts=" + switchPorts + "]";
     }
 
     /**

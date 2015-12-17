@@ -479,7 +479,7 @@ public class StatisticsCollector implements IFloodlightModule, IStatisticsServic
 	@Override
 	public Route getRouteWithCost(Route route) {
 		int cost = 0;
-		int bottleneck = Integer.MAX_VALUE;
+		int bottleneck = LINK_SPEED;
 		for(int i=0; i<route.getPath().size(); i += 2) {
 			
 			SwitchPortBandwidth bandwidth = getBandwidthConsumption(route.getPath().get(i).getNodeId(),route.getPath().get(i).getPortId());

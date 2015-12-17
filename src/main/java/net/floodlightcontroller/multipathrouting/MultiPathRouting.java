@@ -237,7 +237,7 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
                     previous.get(dst).add(link.getInverse());
                 } else if (totalCost > costs.get(dst)) {
                 	// all path
-                	//previous.get(dst).add(link.getInverse());
+                	previous.get(dst).add(link.getInverse());
                 }
             }
 

@@ -48,8 +48,8 @@ import net.floodlightcontroller.util.MatchUtils;
 
 public class IcnForwarding {
 
-	public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 3; // in seconds
-	public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 2; // infinite
+	public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 0; // in seconds
+	public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 0; // infinite
 	public static int FLOWMOD_DEFAULT_PRIORITY = Integer.MAX_VALUE; // 0 is the default
 													// table-miss flow in
 													// OF1.3+, so we need to use
@@ -357,7 +357,7 @@ public class IcnForwarding {
 		OFPort output = null;
 		OFPort revOutput = null;
 
-		for (ContentFlow flow : Monitoring.flows.get(srcIp.toString() + ":" + dstIp.toString())) {
+		for (ContentFlow flow : Monitoring.flows.get(srcIp.toString())) {
 			if (flow.getFlowId() == destinationPort.getPort()) {
 				IcnModule.logger.info(flow.getRoute().toString());
 				output = flow.getRoute().get(1).getPortId();

@@ -6,14 +6,14 @@ public class ContentDesc {
 	
 	private String contentId;
 	private List<Location> locations;
-	private Long bandwidth;
+	private int bandwidth;
 	
 	public ContentDesc(String contentId, List<Location> locations,
 			String bandwidth) {
 		super();
 		this.contentId = contentId;
 		this.locations = locations;
-		this.bandwidth = Long.parseLong(bandwidth);
+		this.bandwidth = Integer.parseInt(bandwidth);
 	}
 
 	@Override
@@ -38,11 +38,11 @@ public class ContentDesc {
 		this.contentId = contentId;
 	}
 
-	public Long getBandwidth() {
+	public int getBandwidth() {
 		return bandwidth;
 	}
 
-	public void setBandwidth(Long bandwidth) {
+	public void setBandwidth(int bandwidth) {
 		this.bandwidth = bandwidth;
 	}
 

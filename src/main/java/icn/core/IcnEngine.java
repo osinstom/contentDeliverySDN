@@ -3,8 +3,11 @@ package icn.core;
 import icn.core.ContentDesc.Location;
 
 import java.io.IOException;
+import java.util.AbstractMap;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -89,37 +92,16 @@ public class IcnEngine extends IcnForwarding {
 		if (ipv4.getDestinationAddress().equals(IcnModule.VIP)) {
 			if (payload.contains("HTTP") && payload.contains("GET")) { // HTTP
 				// IcnModule.logger.info(payload); // GET =
+				String contentFlowId = srcIp;
+				int flowId = getFlowId(contentFlowId);
 
 				String contentSourceUrl = getContentSource(
-						Utils.getContentId(payload), srcIp);
+						Utils.getContentId(payload), srcIp, flowId);
 
 				if (contentSourceUrl != null) {
-					String contentFlowId = srcIp
-							+ ":"
-							+ contentSourceUrl.substring(0,
-									contentSourceUrl.indexOf(":"));
 
-					int flowId = getFlowId(contentFlowId);
 					contentSourceUrl = contentSourceUrl.replace("$flowId$",
 							Integer.toString(flowId));
-
-					if (Monitoring.flows.containsKey(contentFlowId))
-						Monitoring.flows.get(contentFlowId).add(
-								new ContentFlow(flowId));
-					else {
-						ConcurrentLinkedQueue<ContentFlow> cFlows = new ConcurrentLinkedQueue<ContentFlow>();
-						cFlows.add(new ContentFlow(flowId));
-						Monitoring.flows.put(contentFlowId, cFlows);
-					}
-
-					// new InstallRules(srcIp, contentSourceUrl,
-					// flowId).start();
-
-					prepareRoute(
-							srcIp,
-							contentSourceUrl.substring(0,
-									contentSourceUrl.indexOf(":")),
-							TransportPort.of(flowId));
 
 					OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 							contentSourceUrl);
@@ -141,8 +123,7 @@ public class IcnEngine extends IcnForwarding {
 					+ " Route to dest request: " + tcp.getSourcePort() + " "
 					+ tcp.getDestinationPort() + " "
 					+ ipv4.getDestinationAddress());
-			String contentFlowId = ipv4.getSourceAddress().toString() + ":"
-					+ ipv4.getDestinationAddress();
+			String contentFlowId = ipv4.getSourceAddress().toString();
 			IcnModule.logger.info(Monitoring.getInstance()
 					.getFlowIds(contentFlowId).toString());
 
@@ -176,12 +157,12 @@ public class IcnEngine extends IcnForwarding {
 		return flowId;
 	}
 
-	private String getContentSource(String contentId, String srcIp) {
+	private String getContentSource(String contentId, String srcIp, int flowId) {
 
 		ContentDesc contentDesc = Utils.getContentDesc(contentId);
 		IcnModule.logger.info(contentDesc.toString());
 		Location bestSource = calculateBestSource(contentDesc.getLocations(),
-				srcIp, contentDesc.getBandwidth());
+				srcIp, contentDesc.getBandwidth(), flowId);
 
 		return bestSource.getIpAddr() + ":$flowId$/"
 				+ bestSource.getLocalPath();
@@ -189,11 +170,12 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	private Location calculateBestSource(List<Location> locations,
-			String srcIp, Long minBandwidth) {
+			String srcIp, int minBandwidth, int flowId) {
 
-		Location bestLocation = null;
 		IDevice srcDev = Utils.getDevice(srcIp);
 		IDevice dstDev = null;
+		KeyValuePair<Location, Route> bestSource = new KeyValuePair<ContentDesc.Location, Route>(
+				null, null);
 
 		if (locations.size() == 1)
 			return locations.get(0);
@@ -201,7 +183,6 @@ public class IcnEngine extends IcnForwarding {
 			List<Location> potentials = new ArrayList<ContentDesc.Location>();
 			for (Location location : locations) {
 				if (location.isLoaded() == false) {
-					bestLocation = location;
 					potentials.add(location);
 				}
 			}
@@ -214,23 +195,56 @@ public class IcnEngine extends IcnForwarding {
 				ArrayList<Route> rs = mpathRoutingService.getMultiRoute(
 						srcDev.getAttachmentPoints()[0].getSwitchDPID(),
 						dstDev.getAttachmentPoints()[0].getSwitchDPID())
-						.getRoutes();
+						.getRoutes(minBandwidth);
+
 				locAndRoutes.put(potential, rs);
 
 			}
-			
-			IcnModule.logger.info("Potential routes: \n");
-			for(Entry<Location, List<Route>> entry : locAndRoutes.entrySet()) {
-				IcnModule.logger.info("To location: " + entry.getKey());
-				for(Route r : entry.getValue())
-					IcnModule.logger.info(r.toString());
-			}
-			
-			
-			
-		}
-		return bestLocation;
 
+			double selectionCost = Double.MAX_VALUE;
+
+			IcnModule.logger.info("All possibilities: \n");
+			for (Entry<Location, List<Route>> entry : locAndRoutes.entrySet()) {
+				IcnModule.logger.info("To location: " + entry.getKey());
+				for (Route r : entry.getValue()) {
+					double tmpCost = calculateSelectionCost(r.getPath().size(),
+							r.getTotalCost());
+					if (tmpCost < selectionCost) {
+						bestSource.setKey(entry.getKey());
+						bestSource.setValue(r);
+						selectionCost = tmpCost;
+					}
+					IcnModule.logger.info(r.toString());
+					IcnModule.logger.info("Selection factor: " + tmpCost);
+				}
+			}
+
+			IcnModule.logger.info("Best source=" + bestSource);
+
+		}
+
+		if (bestSource.getKey() != null && bestSource.getValue() != null) {
+
+			if (Monitoring.flows.containsKey(srcIp))
+				Monitoring.flows.get(srcIp).add(new ContentFlow(flowId));
+			else {
+				ConcurrentLinkedQueue<ContentFlow> cFlows = new ConcurrentLinkedQueue<ContentFlow>();
+				cFlows.add(new ContentFlow(flowId));
+				Monitoring.flows.put(srcIp, cFlows);
+			}
+			prepareRoute(bestSource.getValue(), srcDev,
+					Utils.getDevice(bestSource.getKey().getIpAddr()),
+					TransportPort.of(flowId));
+		}
+
+		return bestSource.getKey();
+
+	}
+
+	private Double calculateSelectionCost(int hops, int routeCost) {
+		double hopsWeight = 0.2;
+		double routeCostWeight = 0.3;
+		return hopsWeight * hops + routeCostWeight * routeCost;
 	}
 
 	private Long bottleneckBandwidth(Route r) {
@@ -238,39 +252,64 @@ public class IcnEngine extends IcnForwarding {
 		return (long) 60;
 	}
 
-	public void prepareRoute(String srcIp, String dstIp, TransportPort srcPort) {
+	// public void prepareRoute(String srcIp, String dstIp, TransportPort
+	// srcPort) {
+	//
+	// IDevice srcDevice = Utils.getDevice(srcIp);
+	// IDevice dstDevice = Utils.getDevice(dstIp);
+	//
+	// IcnModule.logger.info("SRC DEVICE: " + srcDevice.toString());
+	// IcnModule.logger.info("DST DEVICE: " + dstDevice.toString());
+	//
+	// prepareRoute(srcDevice, dstDevice, srcPort);
+	//
+	// }
 
-		IDevice srcDevice = Utils.getDevice(srcIp);
-		IDevice dstDevice = Utils.getDevice(dstIp);
-
-		IcnModule.logger.info("SRC DEVICE: " + srcDevice.toString());
-		IcnModule.logger.info("DST DEVICE: " + dstDevice.toString());
-
-		prepareRoute(srcDevice, dstDevice, srcPort);
-
-	}
-
-	private void prepareRoute(IDevice srcDevice, IDevice dstDevice,
-			TransportPort srcPort) {
+	private void prepareRoute(Route route, IDevice srcDevice,
+			IDevice dstDevice, TransportPort srcTcpPort) {
 
 		DatapathId srcSwId = srcDevice.getAttachmentPoints()[0].getSwitchDPID();
 		DatapathId dstSwId = dstDevice.getAttachmentPoints()[0].getSwitchDPID();
-		Route route = null;
-		if (!srcSwId.equals(dstSwId)) {
-			route = mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
-					.getRoute(srcDevice.getAttachmentPoints()[0].getPort(),
-							dstDevice.getAttachmentPoints()[0].getPort());
+		// Route route = null;
+		// if (!srcSwId.equals(dstSwId)) {
+		// route = mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
+		// .getRoute(srcDevice.getAttachmentPoints()[0].getPort(),
+		// dstDevice.getAttachmentPoints()[0].getPort());
+		// } else {
+		// route = routingService.getRoute(srcSwId,
+		// srcDevice.getAttachmentPoints()[0].getPort(), dstSwId,
+		// dstDevice.getAttachmentPoints()[0].getPort(), null);
+		// }
+		List<NodePortTuple> nptList = null;
+		if (route != null) { 
+			NodePortTuple npt;
+
+			if (route != null) {
+				nptList = new ArrayList<NodePortTuple>(route.getPath());
+			}
+
+			DatapathId srcId = nptList.get(0).getNodeId();
+			DatapathId dstId = nptList.get(nptList.size() - 1).getNodeId();
+
+			npt = new NodePortTuple(srcId,
+					srcDevice.getAttachmentPoints()[0].getPort());
+			nptList.add(0, npt); // add src port to the front
+			npt = new NodePortTuple(dstId,
+					dstDevice.getAttachmentPoints()[0].getPort());
+			nptList.add(npt); // add dst port to the end
 		} else {
-			route = routingService.getRoute(srcSwId,
-					srcDevice.getAttachmentPoints()[0].getPort(), dstSwId,
-					dstDevice.getAttachmentPoints()[0].getPort(), null);
+			// when srcSwid==dstSwId
+			
+			
+			
+			
 		}
+		route.setPath(nptList);
 
 		ContentFlow flow = null;
 		for (ContentFlow f : Monitoring.flows
-				.get(srcDevice.getIPv4Addresses()[0].toString() + ":"
-						+ dstDevice.getIPv4Addresses()[0].toString())) {
-			if (f.getFlowId() == srcPort.getPort()) {
+				.get(srcDevice.getIPv4Addresses()[0].toString())) {
+			if (f.getFlowId() == srcTcpPort.getPort()) {
 				flow = f;
 			}
 		}
@@ -282,7 +321,7 @@ public class IcnEngine extends IcnForwarding {
 				.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
 				.setExact(MatchField.IPV4_SRC, srcDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.IPV4_DST, dstDevice.getIPv4Addresses()[0])
-				.setExact(MatchField.TCP_SRC, srcPort)
+				.setExact(MatchField.TCP_SRC, srcTcpPort)
 				.setExact(MatchField.TCP_DST, TransportPort.of(80));
 
 		Match.Builder reverseMatch = OFFactories.getFactory(OFVersion.OF_13)
@@ -290,7 +329,7 @@ public class IcnEngine extends IcnForwarding {
 				.setExact(MatchField.IP_PROTO, IpProtocol.TCP)
 				.setExact(MatchField.IPV4_SRC, dstDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.IPV4_DST, srcDevice.getIPv4Addresses()[0])
-				.setExact(MatchField.TCP_DST, srcPort)
+				.setExact(MatchField.TCP_DST, srcTcpPort)
 				.setExact(MatchField.TCP_SRC, TransportPort.of(80));
 
 		flow.setFlowMatch(forwardMatch.build());
@@ -326,11 +365,42 @@ public class IcnEngine extends IcnForwarding {
 		@Override
 		public void run() {
 			IcnModule.logger.info("Thread started.. ");
-			prepareRoute(srcIp, contentSourceUrl.substring(0,
-					contentSourceUrl.indexOf(":")), TransportPort.of(flowId));
+			// prepareRoute(srcIp, contentSourceUrl.substring(0,
+			// contentSourceUrl.indexOf(":")), TransportPort.of(flowId));
 			IcnModule.logger.info("Task finished.. ");
 		}
 
+	}
+
+	public class KeyValuePair<K, V> implements Map.Entry<K, V> {
+		private K key;
+		private V value;
+
+		@Override
+		public String toString() {
+			return "KeyValuePair [key=" + key + ", value=" + value + "]";
+		}
+
+		public KeyValuePair(K key, V value) {
+			this.key = key;
+			this.value = value;
+		}
+
+		public K getKey() {
+			return this.key;
+		}
+
+		public V getValue() {
+			return this.value;
+		}
+
+		public K setKey(K key) {
+			return this.key = key;
+		}
+
+		public V setValue(V value) {
+			return this.value = value;
+		}
 	}
 
 }

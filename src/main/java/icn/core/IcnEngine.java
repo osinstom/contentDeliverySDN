@@ -160,6 +160,11 @@ public class IcnEngine extends IcnForwarding {
 
 			dstDev = Utils.getDevice(potential.getIpAddr());
 
+			if(dstDev==null) 
+				IcnModule.logger.info("DST NULL");
+			else if(srcDev==null)
+				IcnModule.logger.info("SRC NULL");
+			
 			ArrayList<Route> rs = IcnModule.mpathRoutingService.getMultiRoute(
 					srcDev.getAttachmentPoints()[0].getSwitchDPID(),
 					dstDev.getAttachmentPoints()[0].getSwitchDPID()).getRoutes(

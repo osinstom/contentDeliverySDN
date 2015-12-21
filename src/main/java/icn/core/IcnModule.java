@@ -58,9 +58,10 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	private static ILinkDiscoveryService linkDiscoveryService = null;
 	public static IStatisticsService statisticsService = null;
 
-	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
-	protected final static MacAddress VMAC = MacAddress.of("99:99:99:99:99:99");
+	protected final static IPv4Address VIP = IPv4Address.of(IcnConfiguration.getInstance().getVirtualIP());
 
+//	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
+//	protected final static MacAddress VMAC = MacAddress.of("99:99:99:99:99:99");
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
 		return null;
@@ -119,10 +120,6 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		IcnEngine.getInstance().setSwitchService(this.switchService);
 		IcnEngine.getInstance().setMpathRoutingService(mpathRoutingService);
 		IcnEngine.getInstance().setLinkDiscoveryService(linkDiscoveryService);
-
-		IcnModule.logger.info("INVOKED");
-		mpathRoutingService.modifyLinkCost(DatapathId.of("00:00:00:00:00:00:00:01"), DatapathId.of("00:00:00:00:00:00:00:04"), Short.MAX_VALUE);
-		
 	}
 
 	@Override
@@ -143,30 +140,22 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	@Override
 	public net.floodlightcontroller.core.IListener.Command receive(
 			IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-		mpathRoutingService.modifyLinkCost(DatapathId.of("00:00:00:00:00:00:00:01"), DatapathId.of("00:00:00:00:00:00:00:04"), (short)90);
 		
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 
 		
-
+		
 		if (eth.getEtherType().equals(EthType.ARP)) {
 			ARP arp = (ARP) eth.getPayload();
 			if (arp.getTargetProtocolAddress().equals(VIP))
-				OFUtils.pushARP(sw, eth, msg, IcnModule.VMAC);
-//			else 
-//				IcnEngine.getInstance().flood(sw, eth, msg);
+				OFUtils.pushARP(sw, eth, msg);
+
 		}
 
 		if (eth.getEtherType().equals(EthType.IPv4)) {
 			IPv4 ipv4 = (IPv4) eth.getPayload();
-//			IcnModule.logger.info("Packet type: " + eth.getEtherType());
-//			IcnModule.logger.info("SRC Device: "
-//					+ IDeviceService.fcStore.get(cntx,
-//							IDeviceService.CONTEXT_SRC_DEVICE));
-//			IcnModule.logger.info("DST Device: "
-//					+ IDeviceService.fcStore.get(cntx,
-//							IDeviceService.CONTEXT_DST_DEVICE));
+			IcnModule.logger.info("Packet type: " + eth.getEtherType());
 
 			if (ipv4.getProtocol().equals(IpProtocol.TCP)) {
 
@@ -177,6 +166,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 		return Command.CONTINUE;
 	}
+
 
 
 }

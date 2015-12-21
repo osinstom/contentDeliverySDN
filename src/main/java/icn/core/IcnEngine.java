@@ -91,7 +91,7 @@ public class IcnEngine extends IcnForwarding {
 		String srcIp = ipv4.getSourceAddress().toString(); // ContentRequest
 		if (ipv4.getDestinationAddress().equals(IcnModule.VIP)) {
 			if (payload.contains("HTTP") && payload.contains("GET")) { // HTTP
-				// IcnModule.logger.info(payload); // GET =
+				IcnModule.logger.info(payload); // GET =
 				String contentFlowId = srcIp;
 				int flowId = getFlowId(contentFlowId);
 

@@ -67,22 +67,24 @@ public class OFUtils {
 	// (byte) 0x00, (byte) 0x5a, (byte) 0x2c, (byte) 0x6e
 	};
 
-	public static void pushARP(IOFSwitch sw, Ethernet eth, OFMessage msg,
-			MacAddress mac) {
+	public static void pushARP(IOFSwitch sw, Ethernet eth, OFMessage msg) {
 
 		OFPacketIn pi = (OFPacketIn) msg;
 
 		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
 				.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+		
+		OFPortDesc ofPort = sw.getPort(inPort);
+		
 		IcnModule.logger.info("SRCMAC=" + eth.getSourceMACAddress());
-
-		Ethernet l2 = new Ethernet();
-		l2.setSourceMACAddress(mac);
+		
+		Ethernet l2 = (Ethernet) eth.clone();
+		l2.setSourceMACAddress(ofPort.getHwAddr());
 		l2.setDestinationMACAddress(eth.getSourceMACAddress());
 		l2.setEtherType(EthType.ARP);
-
-		ARP l2_5 = new ARP();
-		l2_5.setSenderHardwareAddress(mac);
+		ARP arp = (ARP) eth.getPayload();
+		ARP l2_5 = (ARP)arp.clone();
+		l2_5.setSenderHardwareAddress(ofPort.getHwAddr());
 		l2_5.setTargetHardwareAddress(((ARP) eth.getPayload())
 				.getSenderHardwareAddress());
 		l2_5.setSenderProtocolAddress(((ARP) eth.getPayload())
@@ -100,7 +102,7 @@ public class OFUtils {
 		l2.setPayload(l2_5);
 		IcnModule.logger.info("" + l2_5.getTargetHardwareAddress());
 		byte[] serializedData = l2.serialize();
-
+		
 		OFPacketOut po = sw
 				.getOFFactory()
 				.buildPacketOut()
@@ -109,7 +111,9 @@ public class OFUtils {
 				.setActions(
 						Collections.singletonList((OFAction) sw.getOFFactory()
 								.actions().output(inPort, 0xffFFffFF)))
-				.setInPort(OFPort.CONTROLLER).build();
+				.setBufferId(OFBufferId.NO_BUFFER)
+				.setInPort(OFPort.ANY)
+				.build();
 
 		if (!Utils.arpTable.containsKey(((ARP) eth.getPayload())
 				.getSenderProtocolAddress().toString()))
@@ -126,11 +130,7 @@ public class OFUtils {
 	public static void insertHTTPDpiFlow(IOFSwitch sw) {
 
 		OFFactory ofFactory = sw.getOFFactory();
-
 		Builder match = ofFactory.buildMatch();
-
-		// for(OFPortDesc port : sw.getPorts())
-		// match.setExact(MatchField.IN_PORT, port.getPortNo());
 
 		OFAction action = ofFactory.actions().output(OFPort.CONTROLLER,
 				0xffFFffFF);
@@ -175,7 +175,7 @@ public class OFUtils {
 		l2.setDestinationMACAddress(eth.getSourceMACAddress());
 		l2.setSourceMACAddress(eth.getDestinationMACAddress());
 
-		IPv4 l3 = new IPv4();
+		IPv4 l3 = (IPv4) ipv4.clone();
 		l3.setDestinationAddress(ipv4.getSourceAddress());
 		l3.setSourceAddress(ipv4.getDestinationAddress());
 		l3.setDiffServ(ipv4.getDiffServ());
@@ -228,7 +228,8 @@ public class OFUtils {
 				.setActions(
 						Collections.singletonList((OFAction) sw.getOFFactory()
 								.actions().output(outputPort, 0xffFFffFF)))
-				.setInPort(OFPort.CONTROLLER).build();
+				//.setInPort(OFPort.CONTROLLER)
+				.build();
 
 		sw.write(po);
 	}

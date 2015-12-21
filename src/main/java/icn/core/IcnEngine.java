@@ -148,51 +148,46 @@ public class IcnEngine extends IcnForwarding {
 		KeyValuePair<Location, Route> bestSource = new KeyValuePair<ContentDesc.Location, Route>(
 				null, null);
 
-		if (locations.size() == 1)
-			return locations.get(0);
-		else {
-			List<Location> potentials = new ArrayList<ContentDesc.Location>();
-			for (Location location : locations) {
-				if (location.isLoaded() == false) {
-					potentials.add(location);
-				}
+		List<Location> potentials = new ArrayList<ContentDesc.Location>();
+		for (Location location : locations) {
+			if (location.isLoaded() == false) {
+				potentials.add(location);
 			}
-			Map<Location, List<Route>> locAndRoutes = new HashMap<ContentDesc.Location, List<Route>>();
-			List<Route> routes = new ArrayList<Route>();
-			for (Location potential : potentials) {
+		}
+		Map<Location, List<Route>> locAndRoutes = new HashMap<ContentDesc.Location, List<Route>>();
+		List<Route> routes = new ArrayList<Route>();
+		for (Location potential : potentials) {
 
-				dstDev = Utils.getDevice(potential.getIpAddr());
+			dstDev = Utils.getDevice(potential.getIpAddr());
 
-				ArrayList<Route> rs = mpathRoutingService.getMultiRoute(
-						srcDev.getAttachmentPoints()[0].getSwitchDPID(),
-						dstDev.getAttachmentPoints()[0].getSwitchDPID())
-						.getRoutes(minBandwidth);
+			ArrayList<Route> rs = mpathRoutingService.getMultiRoute(
+					srcDev.getAttachmentPoints()[0].getSwitchDPID(),
+					dstDev.getAttachmentPoints()[0].getSwitchDPID()).getRoutes(
+					minBandwidth);
 
-				locAndRoutes.put(potential, rs);
-
-			}
-
-			double selectionCost = Double.MAX_VALUE;
-
-			IcnModule.logger.info("All possibilities: \n");
-			for (Entry<Location, List<Route>> entry : locAndRoutes.entrySet()) {
-				IcnModule.logger.info("To location: " + entry.getKey());
-				for (Route r : entry.getValue()) {
-					double tmpCost = calculateSelectionCost(r.getPath().size(),
-							r.getTotalCost());
-					if (tmpCost < selectionCost) {
-						bestSource.setKey(entry.getKey());
-						bestSource.setValue(r);
-						selectionCost = tmpCost;
-					}
-					IcnModule.logger.info(r.toString());
-					IcnModule.logger.info("Selection factor: " + tmpCost);
-				}
-			}
-
-			IcnModule.logger.info("Best source=" + bestSource);
+			locAndRoutes.put(potential, rs);
 
 		}
+
+		double selectionCost = Double.MAX_VALUE;
+
+		IcnModule.logger.info("All possibilities: \n");
+		for (Entry<Location, List<Route>> entry : locAndRoutes.entrySet()) {
+			IcnModule.logger.info("To location: " + entry.getKey());
+			for (Route r : entry.getValue()) {
+				double tmpCost = calculateSelectionCost(r.getPath().size(),
+						r.getTotalCost());
+				if (tmpCost < selectionCost) {
+					bestSource.setKey(entry.getKey());
+					bestSource.setValue(r);
+					selectionCost = tmpCost;
+				}
+				IcnModule.logger.info(r.toString());
+				IcnModule.logger.info("Selection factor: " + tmpCost);
+			}
+		}
+
+		IcnModule.logger.info("Best source=" + bestSource);
 
 		if (bestSource.getKey() != null && bestSource.getValue() != null) {
 
@@ -252,7 +247,7 @@ public class IcnEngine extends IcnForwarding {
 		// dstDevice.getAttachmentPoints()[0].getPort(), null);
 		// }
 		List<NodePortTuple> nptList = null;
-		if (route != null) { 
+		if (route != null) {
 			NodePortTuple npt;
 
 			if (route != null) {
@@ -270,10 +265,7 @@ public class IcnEngine extends IcnForwarding {
 			nptList.add(npt); // add dst port to the end
 		} else {
 			// when srcSwid==dstSwId
-			
-			
-			
-			
+
 		}
 		route.setPath(nptList);
 

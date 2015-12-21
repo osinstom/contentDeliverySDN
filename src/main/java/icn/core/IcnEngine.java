@@ -160,7 +160,7 @@ public class IcnEngine extends IcnForwarding {
 
 			dstDev = Utils.getDevice(potential.getIpAddr());
 
-			ArrayList<Route> rs = mpathRoutingService.getMultiRoute(
+			ArrayList<Route> rs = IcnModule.mpathRoutingService.getMultiRoute(
 					srcDev.getAttachmentPoints()[0].getSwitchDPID(),
 					dstDev.getAttachmentPoints()[0].getSwitchDPID()).getRoutes(
 					minBandwidth);

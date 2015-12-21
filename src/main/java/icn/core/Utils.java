@@ -4,12 +4,14 @@ import icn.core.ContentDesc.Location;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+
+import net.floodlightcontroller.devicemanager.IDevice;
+import net.floodlightcontroller.topology.NodePortTuple;
 
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.IPv4Address;
@@ -19,12 +21,6 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-
-import net.floodlightcontroller.devicemanager.IDevice;
-import net.floodlightcontroller.devicemanager.SwitchPort;
-import net.floodlightcontroller.forwarding.Forwarding;
-import net.floodlightcontroller.routing.Route;
-import net.floodlightcontroller.topology.NodePortTuple;
 
 public class Utils {
 

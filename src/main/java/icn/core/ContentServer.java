@@ -1,7 +1,5 @@
 package icn.core;
 
-import net.floodlightcontroller.devicemanager.SwitchPort;
-
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.MacAddress;

@@ -2,12 +2,9 @@ package icn.core;
 
 import java.util.List;
 
-import net.floodlightcontroller.routing.Route;
 import net.floodlightcontroller.topology.NodePortTuple;
 
 import org.projectfloodlight.openflow.protocol.match.Match;
-
-import com.fasterxml.jackson.dataformat.yaml.snakeyaml.nodes.NodeTuple;
 
 public class ContentFlow {
 	

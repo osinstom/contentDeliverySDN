@@ -46,9 +46,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public static IStatisticsService statisticsService = null;
 
 	protected final static IPv4Address VIP = IPv4Address.of(IcnConfiguration.getInstance().getVirtualIP());
-
-//	protected final static IPv4Address VIP = IPv4Address.of("10.0.99.99");
-//	protected final static MacAddress VMAC = MacAddress.of("99:99:99:99:99:99");
+	
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
 		return null;
@@ -135,7 +133,6 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 			ARP arp = (ARP) eth.getPayload();
 			if (arp.getTargetProtocolAddress().equals(VIP))
 				OFUtils.pushARP(sw, eth, msg);
-
 		}
 
 		if (eth.getEtherType().equals(EthType.IPv4)) {

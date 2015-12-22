@@ -28,7 +28,7 @@ public class MultiRoute {
 
 	public ArrayList<Route> getRoutes(int minBand) {
 		
-		List<Route> tmp = new ArrayList<Route>();
+		ArrayList<Route> tmp = new ArrayList<Route>();
 		Route lowestCostRoute = null;
 		for(Route route : routes) {
 			Route r = IcnModule.statisticsService.getRouteWithCost(route);
@@ -41,16 +41,13 @@ public class MultiRoute {
 				if(r.getPath().size()< lowestCostRoute.getPath().size())
 					lowestCostRoute = r;
 			}
-			
 		}
 		
 		if(tmp.size()==0)
 			tmp.add(lowestCostRoute);
 		IcnModule.logger.info("Lowest cost route: " + lowestCostRoute);
-		routes.clear();
-		routes.addAll(tmp);
 		
-		return routes;
+		return tmp;
 	}
 
     public Route getRoute() {
@@ -60,31 +57,7 @@ public class MultiRoute {
     	return routes.get(rand.nextInt(routes.size()));
     }
     
-    public Route getE2ERoute(Route route, OFPort srcPort, OFPort dstPort) {
-    	
-    	List<NodePortTuple> nptList = null;
-        NodePortTuple npt;
-        
-        if (route != null) {
-            nptList= new ArrayList<NodePortTuple>(route.getPath());
-        }
-        
-        DatapathId srcId = nptList.get(0).getNodeId();
-        DatapathId dstId = nptList.get(nptList.size()-1).getNodeId();
-        
-        npt = new NodePortTuple(srcId, srcPort);
-        nptList.add(0, npt); // add src port to the front
-        npt = new NodePortTuple(dstId, dstPort);
-        nptList.add(npt); // add dst port to the end
-    	
-        RouteId id = new RouteId(srcId, dstId);
-        route = new Route(id, nptList);
-        return route;
-    	
-    }
-    
     public Route getRoute(OFPort srcPort, OFPort dstPort) {
-    	
     	
     	List<NodePortTuple> nptList = null;
         NodePortTuple npt;

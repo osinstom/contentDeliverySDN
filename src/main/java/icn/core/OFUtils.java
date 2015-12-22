@@ -181,7 +181,8 @@ public class OFUtils {
 		if (flag == ACK_FLAG) {
 			byte[] payloadData = ((Data) tcp.getPayload()).getData();
 			l4.setOptions(getAckOptions(tcp.getOptions()));
-			l4.setAcknowledge(tcp.getSequence() + payloadData.length);
+			//l4.setAcknowledge(tcp.getSequence() + payloadData.length);
+			l4.setAcknowledge(tcp.getSequence() + 1);
 			l4.setSequence(tcp.getAcknowledge());
 			l4.setFlags(ACK_FLAG);
 		} else if (flag == PSH_ACK_FLAG) {
@@ -316,18 +317,6 @@ public class OFUtils {
 		return synDataOptions;
 	}
 
-	public static void installRule(IOFSwitch sw, Match match,
-			OFPort outputPort, List<OFAction> actions) {
-
-		OFFlowAdd flowAdd = sw.getOFFactory().buildFlowAdd().setMatch(match)
-				.setOutPort(outputPort).setActions(actions).build();
-
-		sw.write(flowAdd);
-
-		IcnModule.logger.info("RULE INSTALLED: " + flowAdd.toString());
-
-	}
-
 	public static void returnHttpResponse(IOFSwitch sw, OFMessage msg,
 			IPv4 ipv4, Ethernet eth, TCP tcp, int responseCode) {
 		// TODO 400 response for bad ip address(!=10.0.99.99)
@@ -357,36 +346,5 @@ public class OFUtils {
 		sendPacketOut(sw, inPort, http);
 
 	}
-
-	public static void insertARPFlow(IOFSwitch sw) {
-
-		OFFactory ofFactory = sw.getOFFactory();
-		List<OFAction> actions = new ArrayList<OFAction>();
-		// for(OFPortDesc portDesc : sw.getPorts())
-		// {
-		// OFAction action = ofFactory.actions().output(portDesc.getPortNo(),
-		// 0xffFFffFF);
-		// actions.add(action);
-		// }
-
-		OFAction action = ofFactory.actions().output(OFPort.FLOOD, 0xffFFffFF);
-		actions.add(action);
-
-		OFFlowAdd arpFlow = ofFactory
-				.buildFlowAdd()
-				.setActions(actions)
-				.setBufferId(OFBufferId.NO_BUFFER)
-				.setMatch(
-						ofFactory.buildMatch()
-								.setExact(MatchField.ETH_TYPE, EthType.ARP)
-								.setExact(MatchField.ARP_OP, ArpOpcode.REQUEST)
-								.build())
-				.setPriority(FlowModUtils.PRIORITY_VERY_HIGH).build();
-
-		sw.write(arpFlow);
-		IcnModule.logger.info("ARP FLOW INSTALLED");
-	}
-
-	
 
 }

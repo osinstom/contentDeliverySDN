@@ -23,6 +23,7 @@ import net.floodlightcontroller.topology.NodePortTuple;
 import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFFlowModCommand;
 import org.projectfloodlight.openflow.protocol.OFMessage;
+import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
@@ -30,19 +31,13 @@ import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IpProtocol;
+import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.TransportPort;
 import org.projectfloodlight.openflow.types.U64;
 
 public class IcnEngine extends IcnForwarding {
 
-	private HashMap<String, HashMap<IPv4Address, Integer>> contentRequestsStats = null;
-
 	public static IcnEngine instance = null;
-
-	private final Match.Builder icnFlowMatchBuilder = OFFactories
-			.getFactory(OFVersion.OF_13).buildMatch()
-			.setExact(MatchField.ETH_TYPE, EthType.IPv4)
-			.setExact(MatchField.IP_PROTO, IpProtocol.TCP);
 
 	public static IcnEngine getInstance() {
 		if (instance == null)
@@ -52,7 +47,7 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	public IcnEngine() {
-		contentRequestsStats = new HashMap<String, HashMap<IPv4Address, Integer>>();
+		
 	}
 
 	public void handleTcp(IOFSwitch sw, OFMessage msg, Ethernet eth, IPv4 ipv4,
@@ -88,6 +83,13 @@ public class IcnEngine extends IcnForwarding {
 					&& ipv4.getDestinationAddress().equals(IcnModule.VIP)
 					&& tcp.getDestinationPort().equals(TransportPort.of(80))) {
 				OFUtils.sendSynAck(sw, msg, ipv4, eth, tcp);
+			} else if (tcp.getFlags() == OFUtils.FIN_ACK_FLAG) {
+				OFPacketIn pi = (OFPacketIn) msg;
+				OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
+						.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+				
+				byte[] resp = OFUtils.generateTCPResponse(eth, ipv4, tcp, OFUtils.ACK_FLAG, null);
+				OFUtils.sendPacketOut(sw, inPort, resp);
 			}
 		} else {
 			IcnModule.logger.info("From sw: " + sw.getId()
@@ -219,24 +221,6 @@ public class IcnEngine extends IcnForwarding {
 		return hopsWeight * hops + routeCostWeight * routeCost;
 	}
 
-	private Long bottleneckBandwidth(Route r) {
-
-		return (long) 60;
-	}
-
-	// public void prepareRoute(String srcIp, String dstIp, TransportPort
-	// srcPort) {
-	//
-	// IDevice srcDevice = Utils.getDevice(srcIp);
-	// IDevice dstDevice = Utils.getDevice(dstIp);
-	//
-	// IcnModule.logger.info("SRC DEVICE: " + srcDevice.toString());
-	// IcnModule.logger.info("DST DEVICE: " + dstDevice.toString());
-	//
-	// prepareRoute(srcDevice, dstDevice, srcPort);
-	//
-	// }
-
 	private void prepareRoute(Route route, IDevice srcDevice,
 			IDevice dstDevice, TransportPort srcTcpPort) {
 
@@ -259,16 +243,18 @@ public class IcnEngine extends IcnForwarding {
 			if (route != null) {
 				nptList = new ArrayList<NodePortTuple>(route.getPath());
 			}
-
+			
 			DatapathId srcId = nptList.get(0).getNodeId();
 			DatapathId dstId = nptList.get(nptList.size() - 1).getNodeId();
 
 			npt = new NodePortTuple(srcId,
 					srcDevice.getAttachmentPoints()[0].getPort());
-			nptList.add(0, npt); // add src port to the front
+			if(!nptList.get(0).equals(npt))
+				nptList.add(0, npt); // add src port to the front
 			npt = new NodePortTuple(dstId,
 					dstDevice.getAttachmentPoints()[0].getPort());
-			nptList.add(npt); // add dst port to the end
+			if(!nptList.get(nptList.size() - 1).equals(npt))
+				nptList.add(npt); // add dst port to the end
 		} else {
 			// when srcSwid==dstSwId
 
@@ -315,29 +301,6 @@ public class IcnEngine extends IcnForwarding {
 		IcnModule.logger.info("Pushing route: " + revRoute.toString());
 		pushRoute(revRoute, reverseMatch.build(), cookie, OFFlowModCommand.ADD,
 				srcSwId);
-
-	}
-
-	private class InstallRules extends Thread {
-
-		private String srcIp;
-		private String contentSourceUrl;
-		private int flowId;
-
-		public InstallRules(String srcIp, String contentSourceUrl, int flowId) {
-			this.srcIp = srcIp;
-			this.contentSourceUrl = contentSourceUrl;
-			this.flowId = flowId;
-
-		}
-
-		@Override
-		public void run() {
-			IcnModule.logger.info("Thread started.. ");
-			// prepareRoute(srcIp, contentSourceUrl.substring(0,
-			// contentSourceUrl.indexOf(":")), TransportPort.of(flowId));
-			IcnModule.logger.info("Task finished.. ");
-		}
 
 	}
 

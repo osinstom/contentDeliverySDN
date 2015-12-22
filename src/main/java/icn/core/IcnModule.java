@@ -130,8 +130,6 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-
-		
 		
 		if (eth.getEtherType().equals(EthType.ARP)) {
 			ARP arp = (ARP) eth.getPayload();

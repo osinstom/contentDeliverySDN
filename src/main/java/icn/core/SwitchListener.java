@@ -25,6 +25,7 @@ public class SwitchListener implements IOFSwitchListener {
 	public SwitchListener(IOFSwitchService switchService) {
 		this.switchService = switchService;
 		activeCS = new ArrayList<DatapathId>();
+		addContentServers();
 	}
 
 	@Override
@@ -39,8 +40,6 @@ public class SwitchListener implements IOFSwitchListener {
 
 	@Override
 	public void switchActivated(DatapathId switchId) {
-		IcnModule.logger.info("Activated: " + switchId);
-		discoverContentServer(switchId);
 	}
 
 	@Override
@@ -50,6 +49,28 @@ public class SwitchListener implements IOFSwitchListener {
 
 	@Override
 	public void switchChanged(DatapathId switchId) {
+	}
+	
+	public void addContentServers() {
+		List<ContentServer> contentServers = Utils.getContentServersInfo();
+
+		for (ContentServer cs : contentServers) {
+				IcnModule.logger.info("Adding: " + cs.getIpAddr());
+				Long deviceKey = IcnModule.deviceService.getDeviceKeyCounter()
+						.getAndIncrement();
+				Entity entity = new Entity(cs.getMacAddress(), null,
+						cs.getIpAddr(), IPv6Address.NONE, cs.getDpId(),
+						cs.getSwitchPort(), new Date());
+				IcnModule.deviceService.getDeviceMap().put(
+						deviceKey,
+						new Device((DeviceManagerImpl) IcnModule.deviceService,
+								deviceKey, entity,
+								new DefaultEntityClassifier()
+										.classifyEntity(entity)));
+				activeCS.add(cs.getDpId());
+				for (IDevice device : IcnModule.deviceService.getAllDevices())
+					IcnModule.logger.info("Device: " + device.toString());
+		}
 	}
 	
 	public void discoverContentServer(DatapathId switchId) {

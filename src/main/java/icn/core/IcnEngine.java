@@ -165,6 +165,7 @@ public class IcnEngine extends IcnForwarding {
 			else if(srcDev==null)
 				IcnModule.logger.info("SRC NULL");
 			IcnModule.logger.info(srcDev.toString());
+			IcnModule.logger.info(dstDev.toString());
 			ArrayList<Route> rs = IcnModule.mpathRoutingService.getMultiRoute(
 					srcDev.getAttachmentPoints()[0].getSwitchDPID(),
 					dstDev.getAttachmentPoints()[0].getSwitchDPID()).getRoutes(

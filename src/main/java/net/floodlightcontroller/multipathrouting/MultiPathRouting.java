@@ -264,6 +264,7 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
     }
     public void generateMultiPath(MultiRoute routes, DatapathId srcDpid, DatapathId dstDpid, DatapathId current, HashMap<DatapathId, HashSet<LinkWithCost>> previous,LinkedList<NodePortTuple> switchPorts)
     {   if (pathCount >=ROUTE_LIMITATION) {
+    	IcnModule.logger.info("Wracam if 1");
             return ;
 		}
 
@@ -271,6 +272,7 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
             pathCount++;
             Route result = new Route(new RouteId(srcDpid,dstDpid), new LinkedList<NodePortTuple>(switchPorts));
             routes.addRoute(result);
+            IcnModule.logger.info("Wracam if 2");
             return ;
         }
         IcnModule.logger.info("Choc raz");

@@ -196,7 +196,7 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
 
         HashMap<DatapathId, HashSet<LinkWithCost>> previous = new HashMap<DatapathId, HashSet<LinkWithCost>>();
         HashMap<DatapathId, HashSet<LinkWithCost>> links = dpidLinks;
-        IcnModule.logger.info("Links: \n" + links);
+       
         for(DatapathId dpid : links.keySet()) {
         	IcnModule.logger.info("DPID: " + dpid);
         	IcnModule.logger.info("Links: " + links.get(dpid));
@@ -225,11 +225,12 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
             for (LinkWithCost link: links.get(node.getDpid())) {
                 DatapathId dst = link.getDstDpid();
                 int totalCost = link.getCost() + cost;
-
+                IcnModule.logger.info("DPID=" + link.getDstDpid());
+                IcnModule.logger.info("Link: " + link.getInverse());
                 if (true == seen.contains(dst)) {
                     continue;
 				}
-                IcnModule.logger.info("Link: " + link.getInverse());
+                
                 if (totalCost < costs.get(dst)) {
                     costs.put(dst,totalCost);
                     previous.get(dst).clear();
@@ -243,12 +244,18 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
                     //multiple path
                 	IcnModule.logger.info("multiple paths");
                     previous.get(dst).add(link.getInverse());
+                    NodeCost ndTemp = new NodeCost(dst,totalCost);
+                    nodeq.remove(ndTemp);
+                    nodeq.add(ndTemp);
                     IcnModule.logger.info("Adding: ");
                 } else if (totalCost > costs.get(dst)) {
                 	// all path
                 	IcnModule.logger.info("all paths");
                 	previous.get(dst).add(link.getInverse());
                 	IcnModule.logger.info("Adding: ");
+                	NodeCost ndTemp = new NodeCost(dst,totalCost);
+                    nodeq.remove(ndTemp);
+                    nodeq.add(ndTemp);
                 }
             }
 

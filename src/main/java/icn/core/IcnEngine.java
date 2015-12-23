@@ -47,7 +47,7 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	public IcnEngine() {
-		
+
 	}
 
 	public void handleTcp(IOFSwitch sw, OFMessage msg, Ethernet eth, IPv4 ipv4,
@@ -87,8 +87,9 @@ public class IcnEngine extends IcnForwarding {
 				OFPacketIn pi = (OFPacketIn) msg;
 				OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
 						.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
-				
-				byte[] resp = OFUtils.generateTCPResponse(eth, ipv4, tcp, OFUtils.ACK_FLAG, null);
+
+				byte[] resp = OFUtils.generateTCPResponse(eth, ipv4, tcp,
+						OFUtils.ACK_FLAG, null);
 				OFUtils.sendPacketOut(sw, inPort, resp);
 			}
 		} else {
@@ -162,16 +163,25 @@ public class IcnEngine extends IcnForwarding {
 
 			dstDev = Utils.getDevice(potential.getIpAddr());
 
-			if(dstDev==null) 
+			if (dstDev == null)
 				IcnModule.logger.info("DST NULL");
-			else if(srcDev==null)
+			else if (srcDev == null)
 				IcnModule.logger.info("SRC NULL");
 			IcnModule.logger.info(srcDev.toString());
 			IcnModule.logger.info(dstDev.toString());
-			ArrayList<Route> rs = IcnModule.mpathRoutingService.getMultiRoute(
-					srcDev.getAttachmentPoints()[0].getSwitchDPID(),
-					dstDev.getAttachmentPoints()[0].getSwitchDPID()).getRoutes(
+//			ArrayList<Route> rs = IcnModule.mpathRoutingService.getMultiRoute(
+//					srcDev.getAttachmentPoints()[0].getSwitchDPID(),
+//					dstDev.getAttachmentPoints()[0].getSwitchDPID()).getRoutes(
+//					minBandwidth);
+			List<Route> rs = IcnModule.mpathRoutingService.getAllRoutes(
+					srcDev.getAttachmentPoints()[0].getSwitchDPID(), srcDev.getAttachmentPoints()[0].getPort(),
+					dstDev.getAttachmentPoints()[0].getSwitchDPID(), dstDev.getAttachmentPoints()[0].getPort(),
 					minBandwidth);
+
+//			IcnModule.logger.info("All paths: ");
+//			for (Route r : routez) {
+//				IcnModule.logger.info(r.toString());
+//			}
 
 			locAndRoutes.put(potential, rs);
 
@@ -190,8 +200,8 @@ public class IcnEngine extends IcnForwarding {
 					bestSource.setValue(r);
 					selectionCost = tmpCost;
 				}
-				IcnModule.logger.info(r.toString());
-				IcnModule.logger.info("Selection factor: " + tmpCost);
+//				IcnModule.logger.info(r.toString());
+//				IcnModule.logger.info("Selection factor: " + tmpCost);
 			}
 		}
 
@@ -216,7 +226,7 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	private Double calculateSelectionCost(int hops, int routeCost) {
-		double hopsWeight = 0.2;
+		double hopsWeight = 0.6;
 		double routeCostWeight = 0.3;
 		return hopsWeight * hops + routeCostWeight * routeCost;
 	}
@@ -236,30 +246,7 @@ public class IcnEngine extends IcnForwarding {
 		// srcDevice.getAttachmentPoints()[0].getPort(), dstSwId,
 		// dstDevice.getAttachmentPoints()[0].getPort(), null);
 		// }
-		List<NodePortTuple> nptList = null;
-		if (route != null) {
-			NodePortTuple npt;
-
-			if (route != null) {
-				nptList = new ArrayList<NodePortTuple>(route.getPath());
-			}
-			
-			DatapathId srcId = nptList.get(0).getNodeId();
-			DatapathId dstId = nptList.get(nptList.size() - 1).getNodeId();
-
-			npt = new NodePortTuple(srcId,
-					srcDevice.getAttachmentPoints()[0].getPort());
-			if(!nptList.get(0).equals(npt))
-				nptList.add(0, npt); // add src port to the front
-			npt = new NodePortTuple(dstId,
-					dstDevice.getAttachmentPoints()[0].getPort());
-			if(!nptList.get(nptList.size() - 1).equals(npt))
-				nptList.add(npt); // add dst port to the end
-		} else {
-			// when srcSwid==dstSwId
-
-		}
-		route.setPath(nptList);
+		
 
 		ContentFlow flow = null;
 		for (ContentFlow f : Monitoring.flows

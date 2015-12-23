@@ -48,8 +48,8 @@ import net.floodlightcontroller.util.MatchUtils;
 
 public class IcnForwarding {
 
-	public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 0; // in seconds
-	public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 0; // infinite
+	public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 2; // in seconds
+	public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 3; // infinite
 	public static int FLOWMOD_DEFAULT_PRIORITY = Integer.MAX_VALUE; // 0 is the default
 													// table-miss flow in
 													// OF1.3+, so we need to use

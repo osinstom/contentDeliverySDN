@@ -32,6 +32,7 @@ public class MultiRoute {
 		Route lowestCostRoute = null;
 		for(Route route : routes) {
 			Route r = IcnModule.statisticsService.getRouteWithCost(route);
+			IcnModule.logger.info("Route: " + r);
 			if(r.getBottleneckBandwidth() >= minBand)
 				tmp.add(r);
 			
@@ -42,6 +43,8 @@ public class MultiRoute {
 					lowestCostRoute = r;
 			}
 		}
+		
+		
 		
 		if(tmp.size()==0)
 			tmp.add(lowestCostRoute);

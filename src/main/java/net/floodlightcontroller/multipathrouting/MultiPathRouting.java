@@ -197,6 +197,10 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
         HashMap<DatapathId, HashSet<LinkWithCost>> previous = new HashMap<DatapathId, HashSet<LinkWithCost>>();
         HashMap<DatapathId, HashSet<LinkWithCost>> links = dpidLinks;
         IcnModule.logger.info("Links: \n" + links);
+        for(DatapathId dpid : links.keySet()) {
+        	IcnModule.logger.info("DPID: " + dpid);
+        	IcnModule.logger.info("Links: " + links.get(dpid));
+        }
         HashMap<DatapathId, Integer> costs = new HashMap<DatapathId, Integer>();
 
         for(DatapathId dpid : links.keySet()) {

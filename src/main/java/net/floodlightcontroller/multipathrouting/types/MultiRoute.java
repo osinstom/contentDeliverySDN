@@ -30,6 +30,7 @@ public class MultiRoute {
 		
 		ArrayList<Route> tmp = new ArrayList<Route>();
 		Route lowestCostRoute = null;
+		IcnModule.logger.info("Routes count: " + routes.size());
 		for(Route route : routes) {
 			Route r = IcnModule.statisticsService.getRouteWithCost(route);
 			IcnModule.logger.info("Route: " + r);

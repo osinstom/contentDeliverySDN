@@ -253,6 +253,11 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
         LinkedList<NodePortTuple> switchPorts = new LinkedList<NodePortTuple>();
         pathCount = 0;
         generateMultiPath(routes,srcDpid,dstDpid,dstDpid,previous,switchPorts);
+        
+        IcnModule.logger.info("Returning routes: \n");
+        for(Route r : routes.getRoutes()) {
+        	IcnModule.logger.info(r.toString());
+        }
         return routes;
     }
     public void generateMultiPath(MultiRoute routes, DatapathId srcDpid, DatapathId dstDpid, DatapathId current, HashMap<DatapathId, HashSet<LinkWithCost>> previous,LinkedList<NodePortTuple> switchPorts)

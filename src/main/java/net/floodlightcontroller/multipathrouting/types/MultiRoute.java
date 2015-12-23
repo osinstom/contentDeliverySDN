@@ -84,6 +84,10 @@ public class MultiRoute {
         return r;
         
     }
+    
+    public ArrayList<Route> getRoutes() {
+    	return routes;
+    }
 
     public int getRouteCount() {
         return routeCount;

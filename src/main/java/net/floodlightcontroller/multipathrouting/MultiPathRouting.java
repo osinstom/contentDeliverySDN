@@ -234,12 +234,13 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
                     costs.put(dst,totalCost);
                     previous.get(dst).clear();
                     previous.get(dst).add(link.getInverse());
-
+                    IcnModule.logger.info("Shortest");
                     NodeCost ndTemp = new NodeCost(dst,totalCost);
                     nodeq.remove(ndTemp);
                     nodeq.add(ndTemp);
                 } else if (totalCost == costs.get(dst) ) {
                     //multiple path
+                	IcnModule.logger.info("multiple paths");
                     previous.get(dst).add(link.getInverse());
                 } else if (totalCost > costs.get(dst)) {
                 	// all path
@@ -277,6 +278,7 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
         }
         IcnModule.logger.info("Choc raz");
         HashSet<LinkWithCost> links = previous.get(current);
+        IcnModule.logger.info(links.toString());
         for(LinkWithCost link: links) {
             NodePortTuple npt = new NodePortTuple(link.getDstDpid(), link.getDstPort());
             NodePortTuple npt2 = new NodePortTuple(link.getSrcDpid(), link.getSrcPort());

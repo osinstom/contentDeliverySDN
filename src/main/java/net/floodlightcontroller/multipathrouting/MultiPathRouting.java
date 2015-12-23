@@ -92,6 +92,7 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
     @Override
     public void topologyChanged(List<LDUpdate> linkUpdates) {
         for (LDUpdate update : linkUpdates) {
+        	
             if (update.getOperation().equals(ILinkDiscovery.UpdateOperation.LINK_REMOVED) || update.getOperation().equals(ILinkDiscovery.UpdateOperation.LINK_UPDATED)) {
                 LinkWithCost srcLink = new LinkWithCost(update.getSrc(), update.getSrcPort(), update.getDst(), update.getDstPort(),1);
                 LinkWithCost dstLink = srcLink.getInverse();
@@ -195,6 +196,7 @@ public class MultiPathRouting implements IFloodlightModule ,ITopologyListener, I
 
         HashMap<DatapathId, HashSet<LinkWithCost>> previous = new HashMap<DatapathId, HashSet<LinkWithCost>>();
         HashMap<DatapathId, HashSet<LinkWithCost>> links = dpidLinks;
+        IcnModule.logger.info("Links: \n" + links);
         HashMap<DatapathId, Integer> costs = new HashMap<DatapathId, Integer>();
 
         for(DatapathId dpid : links.keySet()) {

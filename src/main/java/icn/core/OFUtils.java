@@ -33,6 +33,7 @@ public class OFUtils {
 
 	public static final int HTTP_NOTFOUND = 404;
 	public static final int HTTP_BADREQUEST = 400;
+	public static final int HTTP_SERVICE_UNAVAILABLE = 503;
 
 	public static final short ACK_FLAG = (short) 0x010;
 
@@ -177,16 +178,13 @@ public class OFUtils {
 		l4.setDestinationPort(tcp.getSourcePort());
 		l4.setSourcePort(tcp.getDestinationPort());
 		l4.setWindowSize(tcp.getWindowSize());
-
+		byte[] payloadData = ((Data) tcp.getPayload()).getData();
 		if (flag == ACK_FLAG) {
-			byte[] payloadData = ((Data) tcp.getPayload()).getData();
 			l4.setOptions(getAckOptions(tcp.getOptions()));
-			//l4.setAcknowledge(tcp.getSequence() + payloadData.length);
 			l4.setAcknowledge(tcp.getSequence() + 1);
 			l4.setSequence(tcp.getAcknowledge());
 			l4.setFlags(ACK_FLAG);
 		} else if (flag == PSH_ACK_FLAG) {
-			byte[] payloadData = ((Data) tcp.getPayload()).getData();
 			l4.setOptions(getAckOptions(tcp.getOptions()));
 			l4.setAcknowledge(tcp.getSequence() + payloadData.length);
 			l4.setSequence(tcp.getAcknowledge());
@@ -233,7 +231,7 @@ public class OFUtils {
 		StringBuilder builder = new StringBuilder();
 		builder.append("HTTP/1.1 302 Found\r\n");
 		builder.append("Location: http://" + dstUrl + "\r\n");
-		builder.append("Connection: Keep-Alive\r\n");
+		builder.append("Connection: close\r\n");
 
 		builder.append("\r\n");
 		String httpHeader = builder.toString();
@@ -319,7 +317,7 @@ public class OFUtils {
 
 	public static void returnHttpResponse(IOFSwitch sw, OFMessage msg,
 			IPv4 ipv4, Ethernet eth, TCP tcp, int responseCode) {
-		// TODO 400 response for bad ip address(!=10.0.99.99)
+		
 		OFPacketIn pi = (OFPacketIn) msg;
 
 		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi
@@ -332,9 +330,11 @@ public class OFUtils {
 
 			byte[] tcpAck = generateTCPResponse(eth, ipv4, tcp, ACK_FLAG, null);
 			sendPacketOut(sw, inPort, tcpAck);
-		} else if (responseCode == HTTP_BADREQUEST) {
-			builder.append("HTTP/1.1 400 Bad Request\r\n");
+		}  else if (responseCode == HTTP_SERVICE_UNAVAILABLE) {
+			builder.append("HTTP/1.1 503 Service Unavailable\r\n");
 			builder.append("Connection: close\r\n");
+			byte[] tcpAck = generateTCPResponse(eth, ipv4, tcp, ACK_FLAG, null);
+			sendPacketOut(sw, inPort, tcpAck);
 		}
 		builder.append("\r\n");
 

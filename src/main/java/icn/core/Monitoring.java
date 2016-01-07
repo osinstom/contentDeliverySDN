@@ -40,12 +40,12 @@ public class Monitoring implements IOFMessageListener {
 	public static Monitoring instance = null;
 
 	private IOFSwitchService switchService;
-	private ILinkDiscoveryService linkDiscoveryService;
 	private ITopologyService topologyService;
 	private IStatisticsService statisticsService;
 
-	private int counter;
-	private double average = 0;
+	public static final int minFlowId = 49152;
+	public static final int maxFlowId = 65535;
+	
 	List<Double> measures = new ArrayList<Double>();
 
 	public static Monitoring getInstance() {
@@ -314,12 +314,6 @@ public class Monitoring implements IOFMessageListener {
 
 	}
 
-	public void setLinkDiscoveryService(
-			ILinkDiscoveryService linkDiscoveryService) {
-		this.linkDiscoveryService = linkDiscoveryService;
-
-	}
-
 	public void setTopologyService(ITopologyService topologyService) {
 		this.topologyService = topologyService;
 
@@ -348,9 +342,8 @@ public class Monitoring implements IOFMessageListener {
 		// IcnModule.logger.info("FLOW REMOVED " +
 		// flowRemoved.getMatch().get(MatchField.TCP_SRC).getPort());
 		String contentFlowId = flowRemoved.getMatch().get(MatchField.IPV4_SRC)
-				.toString()
-				+ ":"
-				+ flowRemoved.getMatch().get(MatchField.IPV4_DST).toString();
+				.toString();
+		
 		if (getFlowIds(contentFlowId).contains(
 				flowRemoved.getMatch().get(MatchField.TCP_SRC).getPort())
 				|| getFlowIds(contentFlowId).contains(

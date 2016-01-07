@@ -92,7 +92,6 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 			throws FloodlightModuleException {
 		floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
 		Monitoring.getInstance().setSwitchService(switchService);
-		Monitoring.getInstance().setLinkDiscoveryService(linkDiscoveryService);
 		Monitoring.getInstance().setTopologyService(topologyService);
 		Monitoring.getInstance().setStatisticsService(statisticsService);
 		floodlightProvider.addOFMessageListener(OFType.FLOW_REMOVED, Monitoring.getInstance());

@@ -1,5 +1,7 @@
 package net.floodlightcontroller.multipathrouting;
 
+import icn.core.NoNetworkResourcesException;
+
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,6 +22,6 @@ public interface IMultiPathRoutingService extends IFloodlightService  {
     public Route getRoute(DatapathId srcDpid,OFPort srcPort,DatapathId dstDpid,OFPort dstPort);
 	public MultiRoute getMultiRoute(DatapathId srcDpid, DatapathId dstDpid);
 	public void modifyLinkCost(DatapathId dpid, OFPort port, int cost);
-	List<Route> getAllRoutes(DatapathId srcDpid, OFPort srcPort, DatapathId dstDpid, OFPort dstPort, int minBand);
+	List<Route> getAllRoutes(DatapathId srcDpid, OFPort srcPort, DatapathId dstDpid, OFPort dstPort, int minBand, Integer routesCount, Integer routeLengthDelta);
 	
 }

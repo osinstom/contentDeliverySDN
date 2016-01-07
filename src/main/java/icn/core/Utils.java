@@ -11,6 +11,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import net.floodlightcontroller.devicemanager.IDevice;
+import net.floodlightcontroller.routing.Route;
 import net.floodlightcontroller.topology.NodePortTuple;
 
 import org.projectfloodlight.openflow.types.DatapathId;
@@ -181,6 +182,24 @@ public class Utils {
 		return reversed;
 	}
 	
+	public static String routeToString(Route r) {
+		
+		List<NodePortTuple> path = r.getPath();
+		List<DatapathId> switches = new ArrayList<DatapathId>();
+		for(NodePortTuple npt : path) {
+			if(!switches.contains(npt.getNodeId()))
+				switches.add(npt.getNodeId());
+		}
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("Route via: ");
+		for(DatapathId dpid : switches)
+			sb.append("[" + IcnConfiguration.getInstance().getSwitchFromDpid(dpid.toString()) + "] ");
+		
+		
+		return sb.toString();
+	}
+	
 	public static IDevice getDevice(String ip) {
 		
 		for (IDevice device : IcnModule.deviceService.getAllDevices()) {
@@ -197,6 +216,23 @@ public class Utils {
 		return null;
 		
 		
+	}
+
+	public static String routeToString(List<NodePortTuple> path) {
+		
+		List<DatapathId> switches = new ArrayList<DatapathId>();
+		for(NodePortTuple npt : path) {
+			if(!switches.contains(npt.getNodeId()))
+				switches.add(npt.getNodeId());
+		}
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("Route via: ");
+		for(DatapathId dpid : switches)
+			sb.append("[" + IcnConfiguration.getInstance().getSwitchFromDpid(dpid.toString()) + "] ");
+		
+		
+		return sb.toString();
 	}
 
 }

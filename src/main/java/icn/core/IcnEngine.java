@@ -29,7 +29,6 @@ import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.EthType;
-import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.TransportPort;
@@ -61,19 +60,23 @@ public class IcnEngine extends IcnForwarding {
 				String contentFlowId = srcIp;
 				int flowId = getFlowId(contentFlowId);
 
-				String contentSourceUrl = getContentSource(
-						Utils.getContentId(payload), srcIp, flowId);
-
-				if (contentSourceUrl != null) {
-
+				String contentSourceUrl;
+				try {
+					contentSourceUrl = getContentSource(
+							Utils.getContentId(payload), srcIp, flowId);
+					
 					contentSourceUrl = contentSourceUrl.replace("$flowId$",
 							Integer.toString(flowId));
 
 					OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 							contentSourceUrl);
-				} else
+				} catch (ContentNotFoundException e) {
 					OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
 							OFUtils.HTTP_NOTFOUND);
+				} catch (NoNetworkResourcesException e) {
+					OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp, OFUtils.HTTP_SERVICE_UNAVAILABLE);
+				}
+					
 
 			} else if (payload.contains("HTTP") && payload.contains("PUT")) {
 				IcnModule.logger.info(payload);
@@ -103,14 +106,9 @@ public class IcnEngine extends IcnForwarding {
 
 			if (Monitoring.getInstance().getFlowIds(contentFlowId)
 					.contains(tcp.getDestinationPort().getPort())) {
-
 				setNatFlow(sw, msg, ipv4.getSourceAddress(),
 						ipv4.getDestinationAddress(), tcp.getSourcePort(),
 						tcp.getDestinationPort());
-
-			} else {
-				// OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
-				// OFUtils.HTTP_BADREQUEST);
 			}
 
 		}
@@ -118,7 +116,7 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	private Integer getFlowId(String contentFlowId) {
-
+		
 		int flowId = 0;
 		do {
 			Random rn = new Random();
@@ -131,10 +129,12 @@ public class IcnEngine extends IcnForwarding {
 		return flowId;
 	}
 
-	private String getContentSource(String contentId, String srcIp, int flowId) {
+	private String getContentSource(String contentId, String srcIp, int flowId) throws ContentNotFoundException, NoNetworkResourcesException {
 
 		ContentDesc contentDesc = Utils.getContentDesc(contentId);
-		IcnModule.logger.info(contentDesc.toString());
+		if(contentDesc==null)
+			throw new ContentNotFoundException();
+		
 		Location bestSource = calculateBestSource(contentDesc.getLocations(),
 				srcIp, contentDesc.getBandwidth(), flowId);
 
@@ -144,7 +144,7 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	private Location calculateBestSource(List<Location> locations,
-			String srcIp, int minBandwidth, int flowId) {
+			String srcIp, int minBandwidth, int flowId) throws NoNetworkResourcesException {
 
 		IDevice srcDev = Utils.getDevice(srcIp);
 		IDevice dstDev = null;
@@ -157,35 +157,24 @@ public class IcnEngine extends IcnForwarding {
 				potentials.add(location);
 			}
 		}
+		
 		Map<Location, List<Route>> locAndRoutes = new HashMap<ContentDesc.Location, List<Route>>();
-		List<Route> routes = new ArrayList<Route>();
 		for (Location potential : potentials) {
 
 			dstDev = Utils.getDevice(potential.getIpAddr());
 
-			if (dstDev == null)
-				IcnModule.logger.info("DST NULL");
-			else if (srcDev == null)
-				IcnModule.logger.info("SRC NULL");
-			IcnModule.logger.info(srcDev.toString());
-			IcnModule.logger.info(dstDev.toString());
-//			ArrayList<Route> rs = IcnModule.mpathRoutingService.getMultiRoute(
-//					srcDev.getAttachmentPoints()[0].getSwitchDPID(),
-//					dstDev.getAttachmentPoints()[0].getSwitchDPID()).getRoutes(
-//					minBandwidth);
 			List<Route> rs = IcnModule.mpathRoutingService.getAllRoutes(
 					srcDev.getAttachmentPoints()[0].getSwitchDPID(), srcDev.getAttachmentPoints()[0].getPort(),
 					dstDev.getAttachmentPoints()[0].getSwitchDPID(), dstDev.getAttachmentPoints()[0].getPort(),
-					minBandwidth);
+					minBandwidth, IcnConfiguration.getInstance().getMaxShortestRoutes(), IcnConfiguration.getInstance().getRouteLengthDelta());
 
-//			IcnModule.logger.info("All paths: ");
-//			for (Route r : routez) {
-//				IcnModule.logger.info(r.toString());
-//			}
-
-			locAndRoutes.put(potential, rs);
-
+			if(rs.size()!=0)
+				locAndRoutes.put(potential, rs);
+			
 		}
+		
+		if (locAndRoutes.size() == 0)
+			throw new NoNetworkResourcesException();
 
 		double selectionCost = Double.MAX_VALUE;
 
@@ -200,8 +189,8 @@ public class IcnEngine extends IcnForwarding {
 					bestSource.setValue(r);
 					selectionCost = tmpCost;
 				}
-//				IcnModule.logger.info(r.toString());
-//				IcnModule.logger.info("Selection factor: " + tmpCost);
+				IcnModule.logger.info(Utils.routeToString(r));
+				IcnModule.logger.info("Selection factor: " + tmpCost);
 			}
 		}
 
@@ -236,17 +225,6 @@ public class IcnEngine extends IcnForwarding {
 
 		DatapathId srcSwId = srcDevice.getAttachmentPoints()[0].getSwitchDPID();
 		DatapathId dstSwId = dstDevice.getAttachmentPoints()[0].getSwitchDPID();
-		// Route route = null;
-		// if (!srcSwId.equals(dstSwId)) {
-		// route = mpathRoutingService.getMultiRoute(srcSwId, dstSwId)
-		// .getRoute(srcDevice.getAttachmentPoints()[0].getPort(),
-		// dstDevice.getAttachmentPoints()[0].getPort());
-		// } else {
-		// route = routingService.getRoute(srcSwId,
-		// srcDevice.getAttachmentPoints()[0].getPort(), dstSwId,
-		// dstDevice.getAttachmentPoints()[0].getPort(), null);
-		// }
-		
 
 		ContentFlow flow = null;
 		for (ContentFlow f : Monitoring.flows
@@ -276,17 +254,15 @@ public class IcnEngine extends IcnForwarding {
 
 		flow.setFlowMatch(forwardMatch.build());
 
-		U64 cookie = AppCookie.makeCookie(2, 0);
+		IcnModule.logger.info("Pushing route: " + Utils.routeToString(route.getPath()));
 
-		IcnModule.logger.info("Pushing route: " + route.getPath().toString());
-
-		pushRoute(route.getPath(), forwardMatch.build(), cookie,
+		pushRoute(route.getPath(), forwardMatch.build(), AppCookie.makeCookie(2, 0),
 				OFFlowModCommand.ADD, srcSwId);
 
 		List<NodePortTuple> revRoute = Utils.reverse(route.getPath());
 
-		IcnModule.logger.info("Pushing route: " + revRoute.toString());
-		pushRoute(revRoute, reverseMatch.build(), cookie, OFFlowModCommand.ADD,
+		IcnModule.logger.info("Pushing route: " + Utils.routeToString(revRoute));
+		pushRoute(revRoute, reverseMatch.build(),AppCookie.makeCookie(2, 0), OFFlowModCommand.ADD,
 				srcSwId);
 
 	}

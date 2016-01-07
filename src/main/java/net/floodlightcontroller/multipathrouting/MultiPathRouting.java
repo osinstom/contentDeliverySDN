@@ -1,9 +1,13 @@
 package net.floodlightcontroller.multipathrouting;
 
 import icn.core.IcnModule;
+import icn.core.NoNetworkResourcesException;
+import icn.core.Utils;
 
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Collection;
 import java.util.HashMap;
@@ -453,7 +457,7 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 
 	@Override
 	public List<Route> getAllRoutes(DatapathId srcDpid, OFPort srcPort, DatapathId dstDpid, OFPort dstPort,
-			int minBand) {
+			int minBand, Integer routesCount, Integer routeLengthDelta){
 
 		if (srcDpid == dstDpid) {
 			return null;
@@ -465,6 +469,8 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 		} catch (Exception e) {
 			logger.error("error {}", e.toString());
 		}
+		
+		result = getShortest(result, routesCount, routeLengthDelta);
 		
 		for (Route route : result) {
 			List<NodePortTuple> nptList = null;
@@ -494,28 +500,47 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 		}
 
 		ArrayList<Route> tmp = new ArrayList<Route>();
-		Route lowestCostRoute = null;
-		IcnModule.logger.info("Routes count: " + result.size());
+//		Route lowestCostRoute = null;
+		//IcnModule.logger.info("Routes count: " + result.size());
 		for (Route route : result) {
 			Route r = IcnModule.statisticsService.getRouteWithCost(route);
-			IcnModule.logger.info("Route: " + r);
+			//IcnModule.logger.info("Route: " + Utils.routeToString(r));
+			IcnModule.logger.info(r.toString());
 			if (r.getBottleneckBandwidth() >= minBand)
 				tmp.add(r);
 
-			if (lowestCostRoute == null)
-				lowestCostRoute = r;
-			if (r.getTotalCost() <= lowestCostRoute.getTotalCost()) {
-				if (r.getPath().size() < lowestCostRoute.getPath().size())
-					lowestCostRoute = r;
-			}
+//			if (lowestCostRoute == null)
+//				lowestCostRoute = r;
+//			if (r.getTotalCost() <= lowestCostRoute.getTotalCost()) {
+//				if (r.getPath().size() < lowestCostRoute.getPath().size())
+//					lowestCostRoute = r;
+//			}
 		}
-
-		if (tmp.size() == 0)
-			tmp.add(lowestCostRoute);
-		IcnModule.logger.info("Lowest cost route: " + lowestCostRoute);
 
 
 		return tmp;
+	}
+
+	private List<Route> getShortest(List<Route> result, Integer routesCount,
+			Integer routeLengthDelta) {
+		
+		Collections.sort(result, new PathComparator());
+		List<Route> tmp = new ArrayList<Route>();
+		
+		for(int i=0; i<routesCount; i++) {
+			if(result.get(i).getPath().size() <= result.get(0).getPath().size()+2)
+				tmp.add(result.get(i));
+		}
+		
+		return tmp;
+	}
+	
+	private class PathComparator implements Comparator<Route> {
+		@Override
+		public int compare(Route o1, Route o2) {
+			return Integer.compare(o1.getPath().size(),o2.getPath().size());
+		}
+		
 	}
 
 	@Override

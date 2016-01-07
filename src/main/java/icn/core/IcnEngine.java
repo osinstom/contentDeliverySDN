@@ -45,10 +45,6 @@ public class IcnEngine extends IcnForwarding {
 		return instance;
 	}
 
-	public IcnEngine() {
-
-	}
-
 	public void handleTcp(IOFSwitch sw, OFMessage msg, Ethernet eth, IPv4 ipv4,
 			TCP tcp) {
 
@@ -64,7 +60,7 @@ public class IcnEngine extends IcnForwarding {
 				try {
 					contentSourceUrl = getContentSource(
 							Utils.getContentId(payload), srcIp, flowId);
-					
+
 					contentSourceUrl = contentSourceUrl.replace("$flowId$",
 							Integer.toString(flowId));
 
@@ -74,9 +70,9 @@ public class IcnEngine extends IcnForwarding {
 					OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
 							OFUtils.HTTP_NOTFOUND);
 				} catch (NoNetworkResourcesException e) {
-					OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp, OFUtils.HTTP_SERVICE_UNAVAILABLE);
+					OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
+							OFUtils.HTTP_SERVICE_UNAVAILABLE);
 				}
-					
 
 			} else if (payload.contains("HTTP") && payload.contains("PUT")) {
 				IcnModule.logger.info(payload);
@@ -116,7 +112,7 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	private Integer getFlowId(String contentFlowId) {
-		
+
 		int flowId = 0;
 		do {
 			Random rn = new Random();
@@ -129,12 +125,13 @@ public class IcnEngine extends IcnForwarding {
 		return flowId;
 	}
 
-	private String getContentSource(String contentId, String srcIp, int flowId) throws ContentNotFoundException, NoNetworkResourcesException {
+	private String getContentSource(String contentId, String srcIp, int flowId)
+			throws ContentNotFoundException, NoNetworkResourcesException {
 
 		ContentDesc contentDesc = Utils.getContentDesc(contentId);
-		if(contentDesc==null)
+		if (contentDesc == null)
 			throw new ContentNotFoundException();
-		
+
 		Location bestSource = calculateBestSource(contentDesc.getLocations(),
 				srcIp, contentDesc.getBandwidth(), flowId);
 
@@ -144,7 +141,8 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	private Location calculateBestSource(List<Location> locations,
-			String srcIp, int minBandwidth, int flowId) throws NoNetworkResourcesException {
+			String srcIp, int minBandwidth, int flowId)
+			throws NoNetworkResourcesException {
 
 		IDevice srcDev = Utils.getDevice(srcIp);
 		IDevice dstDev = null;
@@ -157,34 +155,37 @@ public class IcnEngine extends IcnForwarding {
 				potentials.add(location);
 			}
 		}
-		
+
 		Map<Location, List<Route>> locAndRoutes = new HashMap<ContentDesc.Location, List<Route>>();
 		for (Location potential : potentials) {
 
 			dstDev = Utils.getDevice(potential.getIpAddr());
 
 			List<Route> rs = IcnModule.mpathRoutingService.getAllRoutes(
-					srcDev.getAttachmentPoints()[0].getSwitchDPID(), srcDev.getAttachmentPoints()[0].getPort(),
-					dstDev.getAttachmentPoints()[0].getSwitchDPID(), dstDev.getAttachmentPoints()[0].getPort(),
-					minBandwidth, IcnConfiguration.getInstance().getMaxShortestRoutes(), IcnConfiguration.getInstance().getRouteLengthDelta());
+					srcDev.getAttachmentPoints()[0].getSwitchDPID(),
+					srcDev.getAttachmentPoints()[0].getPort(),
+					dstDev.getAttachmentPoints()[0].getSwitchDPID(),
+					dstDev.getAttachmentPoints()[0].getPort(), minBandwidth,
+					IcnConfiguration.getInstance().getMaxShortestRoutes(),
+					IcnConfiguration.getInstance().getRouteLengthDelta());
 
-			if(rs.size()!=0)
+			if (rs.size() != 0)
 				locAndRoutes.put(potential, rs);
-			
+
 		}
-		
+
 		if (locAndRoutes.size() == 0)
 			throw new NoNetworkResourcesException();
 
-		double selectionCost = Double.MAX_VALUE;
+		double selectionCost = 0;
 
 		IcnModule.logger.info("All possibilities: \n");
 		for (Entry<Location, List<Route>> entry : locAndRoutes.entrySet()) {
 			IcnModule.logger.info("To location: " + entry.getKey());
 			for (Route r : entry.getValue()) {
 				double tmpCost = calculateSelectionCost(r.getPath().size(),
-						r.getTotalCost());
-				if (tmpCost < selectionCost) {
+						r.getBottleneckBandwidth());
+				if (tmpCost >= selectionCost) {
 					bestSource.setKey(entry.getKey());
 					bestSource.setValue(r);
 					selectionCost = tmpCost;
@@ -214,10 +215,28 @@ public class IcnEngine extends IcnForwarding {
 
 	}
 
-	private Double calculateSelectionCost(int hops, int routeCost) {
-		double hopsWeight = 0.6;
-		double routeCostWeight = 0.3;
-		return hopsWeight * hops + routeCostWeight * routeCost;
+	private Double calculateSelectionCost(int hops, int bottleneckBandwidth) {
+
+		hops = hops / 2;
+
+		double x = IcnConfiguration.getInstance()
+				.getPathLenghtReservationLevel() - IcnConfiguration
+				.getInstance().getPathLengthAspirationLevel();
+		double cost1 = (IcnConfiguration.getInstance()
+				.getPathLenghtReservationLevel() - hops)
+				/ x;
+		
+		double y = IcnConfiguration.getInstance()
+				.getBandwidthReservationLevel() - IcnConfiguration
+				.getInstance().getBandwidthAspirationLevel();
+		double cost2 = (IcnConfiguration.getInstance().getBandwidthReservationLevel() - bottleneckBandwidth)
+				/ y;
+		IcnModule.logger.info("Cost1: " + cost1 + ", cost2: " + cost2);
+
+		if(cost2==0)
+			return cost1;
+		
+		return Math.min(cost1, cost2);
 	}
 
 	private void prepareRoute(Route route, IDevice srcDevice,
@@ -254,16 +273,18 @@ public class IcnEngine extends IcnForwarding {
 
 		flow.setFlowMatch(forwardMatch.build());
 
-		IcnModule.logger.info("Pushing route: " + Utils.routeToString(route.getPath()));
+		IcnModule.logger.info("Pushing route: "
+				+ Utils.routeToString(route.getPath()));
 
-		pushRoute(route.getPath(), forwardMatch.build(), AppCookie.makeCookie(2, 0),
-				OFFlowModCommand.ADD, srcSwId);
+		pushRoute(route.getPath(), forwardMatch.build(),
+				AppCookie.makeCookie(2, 0), OFFlowModCommand.ADD, srcSwId);
 
 		List<NodePortTuple> revRoute = Utils.reverse(route.getPath());
 
-		IcnModule.logger.info("Pushing route: " + Utils.routeToString(revRoute));
-		pushRoute(revRoute, reverseMatch.build(),AppCookie.makeCookie(2, 0), OFFlowModCommand.ADD,
-				srcSwId);
+		IcnModule.logger
+				.info("Pushing route: " + Utils.routeToString(revRoute));
+		pushRoute(revRoute, reverseMatch.build(), AppCookie.makeCookie(2, 0),
+				OFFlowModCommand.ADD, srcSwId);
 
 	}
 

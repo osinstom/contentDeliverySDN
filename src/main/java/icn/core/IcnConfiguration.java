@@ -93,5 +93,21 @@ public class IcnConfiguration {
 		return Integer.parseInt(props.getProperty("lengthDelta"));
 	}
 	
+	public Integer getPathLengthAspirationLevel() {
+		return Integer.parseInt(props.getProperty("pathLengthAL"));
+	}
+	
+	public Integer getPathLenghtReservationLevel() {
+		return Integer.parseInt(props.getProperty("pathLengthRL"));
+	}
+	
+	public Integer getBandwidthAspirationLevel() {
+		return Integer.parseInt(props.getProperty("bandwidthAL"));
+	}
+	
+	public Integer getBandwidthReservationLevel() {
+		return Integer.parseInt(props.getProperty("bandwidthRL"));
+	}
+	
 
 }

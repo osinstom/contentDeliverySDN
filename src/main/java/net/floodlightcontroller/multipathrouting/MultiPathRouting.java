@@ -1,5 +1,6 @@
 package net.floodlightcontroller.multipathrouting;
 
+import icn.core.IcnConfiguration;
 import icn.core.IcnModule;
 import icn.core.NoNetworkResourcesException;
 import icn.core.Utils;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.LinkedList;
+import java.util.Random;
 import java.util.Set;
 import java.util.Stack;
 
@@ -470,8 +472,6 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 			logger.error("error {}", e.toString());
 		}
 		
-		result = getShortest(result, routesCount, routeLengthDelta);
-		
 		for (Route route : result) {
 			List<NodePortTuple> nptList = null;
 			if (route != null) {
@@ -498,7 +498,9 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 			}
 			route.setPath(nptList);
 		}
-
+		
+		result = getShortest(result, routesCount, routeLengthDelta);
+		
 		ArrayList<Route> tmp = new ArrayList<Route>();
 //		Route lowestCostRoute = null;
 		//IcnModule.logger.info("Routes count: " + result.size());
@@ -526,10 +528,28 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 		
 		Collections.sort(result, new PathComparator());
 		List<Route> tmp = new ArrayList<Route>();
+		for(Route r: result)
+			IcnModule.logger.info(r.toString());
+		List<Route> anothers = new ArrayList<Route>();
 		
-		for(int i=0; i<routesCount; i++) {
-			if(result.get(i).getPath().size() <= result.get(0).getPath().size()+2)
+		int shortest = result.get(0).getPath().size();
+		
+		for(int i=0; i < result.size(); i++) {
+			if(result.get(i).getPath().size() <= shortest) {
 				tmp.add(result.get(i));
+			} else if(result.get(i).getPath().size()/2 == (shortest/2) + IcnConfiguration.getInstance().getRouteLengthDelta()) {
+				anothers.add(result.get(i));
+			}
+			if(tmp.size()==IcnConfiguration.getInstance().getMaxShortestRoutes())
+				break;
+		}
+		
+		Random rand = new Random();
+		IcnModule.logger.info("Anothers size: " + anothers.size());
+		while(tmp.size()!=IcnConfiguration.getInstance().getMaxShortestRoutes()) {
+			Route tmpRoute = anothers.get(rand.nextInt(anothers.size()));
+			tmp.add(tmpRoute);
+			anothers.remove(tmpRoute);
 		}
 		
 		return tmp;

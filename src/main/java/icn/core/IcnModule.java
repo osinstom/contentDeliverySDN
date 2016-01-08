@@ -136,8 +136,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 		if (eth.getEtherType().equals(EthType.IPv4)) {
 			IPv4 ipv4 = (IPv4) eth.getPayload();
-			IcnModule.logger.info("Packet type: " + eth.getEtherType());
-
+			
 			if (ipv4.getProtocol().equals(IpProtocol.TCP)) {
 
 				TCP tcp = (TCP) ipv4.getPayload();

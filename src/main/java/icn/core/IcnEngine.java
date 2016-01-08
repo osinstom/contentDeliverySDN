@@ -37,6 +37,7 @@ import org.projectfloodlight.openflow.types.U64;
 public class IcnEngine extends IcnForwarding {
 
 	public static IcnEngine instance = null;
+	private int actual = 49152;
 
 	public static IcnEngine getInstance() {
 		if (instance == null)
@@ -112,17 +113,33 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	private Integer getFlowId(String contentFlowId) {
+		
+		int start = 49152;
+		int stop = 65535;
+		
+		if(actual >= stop)
+			actual = start;
+		
+		for(int i=actual; i<stop; i++) {
+			if(!Monitoring.getInstance().getFlowIds(contentFlowId)
+					.contains(i)) {
+				actual = i;
+				break;
+			}
+		}
+		
+		return actual;
 
-		int flowId = 0;
-		do {
-			Random rn = new Random();
-			int range = 65535 - 49152 + 1;
-			flowId = rn.nextInt(range) + 49152;
-
-		} while (flowId == 0
-				|| Monitoring.getInstance().getFlowIds(contentFlowId)
-						.contains(flowId));
-		return flowId;
+//		int flowId = 0;
+//		do {
+//			Random rn = new Random();
+//			int range = 65535 - 49152 + 1;
+//			flowId = rn.nextInt(range) + 49152;
+//
+//		} while (flowId == 0
+//				|| Monitoring.getInstance().getFlowIds(contentFlowId)
+//						.contains(flowId));
+//		return flowId;
 	}
 
 	private String getContentSource(String contentId, String srcIp, int flowId)
@@ -146,8 +163,7 @@ public class IcnEngine extends IcnForwarding {
 
 		IDevice srcDev = Utils.getDevice(srcIp);
 		IDevice dstDev = null;
-		KeyValuePair<Location, Route> bestSource = new KeyValuePair<ContentDesc.Location, Route>(
-				null, null);
+		List<KeyValuePair<Location, Route>> bestSources = new ArrayList<IcnEngine.KeyValuePair<Location,Route>>();
 
 		List<Location> potentials = new ArrayList<ContentDesc.Location>();
 		for (Location location : locations) {
@@ -186,16 +202,17 @@ public class IcnEngine extends IcnForwarding {
 				double tmpCost = calculateSelectionCost(r.getPath().size(),
 						r.getBottleneckBandwidth());
 				if (tmpCost >= selectionCost) {
-					bestSource.setKey(entry.getKey());
-					bestSource.setValue(r);
+					bestSources.add(new KeyValuePair<ContentDesc.Location, Route>(entry.getKey(), r));
 					selectionCost = tmpCost;
 				}
 				IcnModule.logger.info(Utils.routeToString(r));
-				IcnModule.logger.info("Selection factor: " + tmpCost);
+				IcnModule.logger.info("Cost: " + tmpCost);
 			}
 		}
+		
+		KeyValuePair<ContentDesc.Location, Route> bestSource = getBestSource(bestSources);
 
-		IcnModule.logger.info("Best source=" + bestSource);
+		IcnModule.logger.info("Best source=" + bestSource.getKey());
 
 		if (bestSource.getKey() != null && bestSource.getValue() != null) {
 
@@ -215,6 +232,14 @@ public class IcnEngine extends IcnForwarding {
 
 	}
 
+	private KeyValuePair<Location, Route> getBestSource(
+			List<KeyValuePair<Location, Route>> bestSources) {
+		
+		Random rand = new Random();
+    	return bestSources.get(rand.nextInt(bestSources.size()));
+
+	}
+
 	private Double calculateSelectionCost(int hops, int bottleneckBandwidth) {
 
 		hops = hops / 2;
@@ -231,7 +256,6 @@ public class IcnEngine extends IcnForwarding {
 				.getInstance().getBandwidthAspirationLevel();
 		double cost2 = (IcnConfiguration.getInstance().getBandwidthReservationLevel() - bottleneckBandwidth)
 				/ y;
-		IcnModule.logger.info("Cost1: " + cost1 + ", cost2: " + cost2);
 
 		if(cost2==0)
 			return cost1;
@@ -252,7 +276,7 @@ public class IcnEngine extends IcnForwarding {
 				flow = f;
 			}
 		}
-		IcnModule.logger.info("Route for flow: " + route.getPath());
+
 		flow.setRoute(route.getPath());
 
 		Match.Builder forwardMatch = OFFactories.getFactory(OFVersion.OF_13)

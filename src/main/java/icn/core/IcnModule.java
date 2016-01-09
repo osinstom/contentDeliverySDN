@@ -85,6 +85,9 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		linkDiscoveryService = context.getServiceImpl(ILinkDiscoveryService.class);
 		statisticsService = context.getServiceImpl(IStatisticsService.class);
 		logger = LoggerFactory.getLogger(IcnModule.class);
+		
+		//Appender fh = new FileAppender(new SimpleLayout(), "MyLogFile.log");
+		
 	}
 
 	@Override

@@ -359,7 +359,6 @@ public class IcnForwarding {
 
 		for (ContentFlow flow : Monitoring.flows.get(srcIp.toString())) {
 			if (flow.getFlowId() == destinationPort.getPort()) {
-				IcnModule.logger.info(flow.getRoute().toString());
 				output = flow.getRoute().get(1).getPortId();
 				revOutput = flow.getRoute().get(0).getPortId();
 			}

@@ -506,8 +506,7 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 		//IcnModule.logger.info("Routes count: " + result.size());
 		for (Route route : result) {
 			Route r = IcnModule.statisticsService.getRouteWithCost(route);
-			//IcnModule.logger.info("Route: " + Utils.routeToString(r));
-			IcnModule.logger.info(r.toString());
+			//IcnModule.logger.info(r.toString());
 			if (r.getBottleneckBandwidth() >= minBand)
 				tmp.add(r);
 
@@ -528,8 +527,8 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 		
 		Collections.sort(result, new PathComparator());
 		List<Route> tmp = new ArrayList<Route>();
-		for(Route r: result)
-			IcnModule.logger.info(r.toString());
+//		for(Route r: result)
+//			IcnModule.logger.info(r.toString());
 		List<Route> anothers = new ArrayList<Route>();
 		
 		int shortest = result.get(0).getPath().size();
@@ -545,7 +544,6 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 		}
 		
 		Random rand = new Random();
-		IcnModule.logger.info("Anothers size: " + anothers.size());
 		while(tmp.size()!=IcnConfiguration.getInstance().getMaxShortestRoutes()) {
 			Route tmpRoute = anothers.get(rand.nextInt(anothers.size()));
 			tmp.add(tmpRoute);

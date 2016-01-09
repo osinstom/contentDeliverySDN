@@ -93,13 +93,10 @@ public class IcnEngine extends IcnForwarding {
 				OFUtils.sendPacketOut(sw, inPort, resp);
 			}
 		} else {
-			IcnModule.logger.info("From sw: " + sw.getId()
-					+ " Route to dest request: " + tcp.getSourcePort() + " "
-					+ tcp.getDestinationPort() + " "
-					+ ipv4.getDestinationAddress());
+
 			String contentFlowId = ipv4.getSourceAddress().toString();
-			IcnModule.logger.info(Monitoring.getInstance()
-					.getFlowIds(contentFlowId).toString());
+//			IcnModule.logger.info(Monitoring.getInstance()
+//					.getFlowIds(contentFlowId).toString());
 
 			if (Monitoring.getInstance().getFlowIds(contentFlowId)
 					.contains(tcp.getDestinationPort().getPort())) {
@@ -195,18 +192,22 @@ public class IcnEngine extends IcnForwarding {
 
 		double selectionCost = 0;
 
-		IcnModule.logger.info("All possibilities: \n");
+		//IcnModule.logger.info("All possibilities: \n");
 		for (Entry<Location, List<Route>> entry : locAndRoutes.entrySet()) {
 			IcnModule.logger.info("To location: " + entry.getKey());
 			for (Route r : entry.getValue()) {
 				double tmpCost = calculateSelectionCost(r.getPath().size(),
 						r.getBottleneckBandwidth());
-				if (tmpCost >= selectionCost) {
+				
+				if (tmpCost > selectionCost) {
+					bestSources.clear();
 					bestSources.add(new KeyValuePair<ContentDesc.Location, Route>(entry.getKey(), r));
 					selectionCost = tmpCost;
+				} else if(tmpCost == selectionCost) {
+					bestSources.add(new KeyValuePair<ContentDesc.Location, Route>(entry.getKey(), r));
 				}
-				IcnModule.logger.info(Utils.routeToString(r));
-				IcnModule.logger.info("Cost: " + tmpCost);
+				IcnModule.logger.info("Route: Cost="+ tmpCost + ", via: " + Utils.routeToString(r));
+			
 			}
 		}
 		

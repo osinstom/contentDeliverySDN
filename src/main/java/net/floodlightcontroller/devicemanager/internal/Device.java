@@ -117,9 +117,9 @@ public class Device implements IDevice {
 				&& !entity.getSwitchPort().equals(OFPort.ZERO)) {
 			DatapathId sw = entity.getSwitchDPID();
 			OFPort port = entity.getSwitchPort();
-			IcnModule.logger.info("VALID?");
+			
 			//if (deviceManager.isValidAttachmentPoint(sw, port)) {
-				IcnModule.logger.info("IS VALID!!!!!!!!");
+				
 				AttachmentPoint ap;
 				ap = new AttachmentPoint(sw, port,
 						entity.getLastSeenTimestamp());

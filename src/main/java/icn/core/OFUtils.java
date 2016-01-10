@@ -180,18 +180,22 @@ public class OFUtils {
 		l4.setWindowSize(tcp.getWindowSize());
 		byte[] payloadData = ((Data) tcp.getPayload()).getData();
 		if (flag == ACK_FLAG) {
-			l4.setOptions(getAckOptions(tcp.getOptions()));
+			if(tcp.getOptions()!=null)
+				l4.setOptions(getAckOptions(tcp.getOptions()));
+			
 			l4.setAcknowledge(tcp.getSequence() + 1);
 			l4.setSequence(tcp.getAcknowledge());
 			l4.setFlags(ACK_FLAG);
 		} else if (flag == PSH_ACK_FLAG) {
-			l4.setOptions(getAckOptions(tcp.getOptions()));
+			if(tcp.getOptions()!=null)
+				l4.setOptions(getAckOptions(tcp.getOptions()));
 			l4.setAcknowledge(tcp.getSequence() + payloadData.length);
 			l4.setSequence(tcp.getAcknowledge());
 			l4.setFlags(PSH_ACK_FLAG);
 		} else if (flag == SYN_ACK_FLAG) {
 			l4.setAcknowledge(tcp.getSequence() + 1);
-			l4.setOptions(getSYNACKOptions(tcp.getOptions()));
+			if(tcp.getOptions()!=null)
+				l4.setOptions(getSYNACKOptions(tcp.getOptions()));
 			l4.setFlags(SYN_ACK_FLAG);
 		}
 

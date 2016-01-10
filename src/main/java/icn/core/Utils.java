@@ -203,9 +203,9 @@ public class Utils {
 	public static IDevice getDevice(String ip) {
 		
 		for (IDevice device : IcnModule.deviceService.getAllDevices()) {
-			IcnModule.logger
-					.info("Device MAC: " + device.getMACAddressString());
-			IcnModule.logger.info("Device: \n" + device.toString());
+//			IcnModule.logger
+//					.info("Device MAC: " + device.getMACAddressString());
+//			IcnModule.logger.info("Device: \n" + device.toString());
 			if (device.getIPv4Addresses().length != 0
 					&& device.getIPv4Addresses()[0] != null) {
 				if (device.getIPv4Addresses()[0].equals(IPv4Address.of(ip)))

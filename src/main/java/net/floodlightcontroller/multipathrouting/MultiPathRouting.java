@@ -498,15 +498,17 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 			}
 			route.setPath(nptList);
 		}
-		
+		IcnModule.logger.info("before getshortest");
 		result = getShortest(result, routesCount, routeLengthDelta);
+		IcnModule.logger.info("after getshortest");
 		
 		ArrayList<Route> tmp = new ArrayList<Route>();
 //		Route lowestCostRoute = null;
 		//IcnModule.logger.info("Routes count: " + result.size());
 		for (Route route : result) {
+			IcnModule.logger.info(route.toString());
 			Route r = IcnModule.statisticsService.getRouteWithCost(route);
-			//IcnModule.logger.info(r.toString());
+			
 			if (r.getBottleneckBandwidth() >= minBand)
 				tmp.add(r);
 
@@ -537,6 +539,7 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 			if(result.get(i).getPath().size() <= shortest) {
 				tmp.add(result.get(i));
 			} else if(result.get(i).getPath().size()/2 == (shortest/2) + IcnConfiguration.getInstance().getRouteLengthDelta()) {
+				IcnModule.logger.info("adding route: " + result.get(i));
 				anothers.add(result.get(i));
 			}
 			if(tmp.size()==IcnConfiguration.getInstance().getMaxShortestRoutes())
@@ -545,9 +548,13 @@ public class MultiPathRouting implements IFloodlightModule, ITopologyListener,
 		
 		Random rand = new Random();
 		while(tmp.size()!=IcnConfiguration.getInstance().getMaxShortestRoutes()) {
-			Route tmpRoute = anothers.get(rand.nextInt(anothers.size()));
+			if(anothers.isEmpty())
+				break;
+			
+			Route tmpRoute  = anothers.get(rand.nextInt(anothers.size()));
 			tmp.add(tmpRoute);
 			anothers.remove(tmpRoute);
+			
 		}
 		
 		return tmp;

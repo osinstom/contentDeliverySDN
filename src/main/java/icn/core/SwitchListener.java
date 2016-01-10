@@ -32,6 +32,7 @@ public class SwitchListener implements IOFSwitchListener {
 	public void switchAdded(DatapathId switchId) {
 		IcnModule.logger.info("Added switch: " + switchId);
 		OFUtils.insertHTTPDpiFlow(switchService.getSwitch(switchId));
+		
 	}
 
 	@Override
@@ -55,19 +56,24 @@ public class SwitchListener implements IOFSwitchListener {
 		List<ContentServer> contentServers = Utils.getContentServersInfo();
 
 		for (ContentServer cs : contentServers) {
-				IcnModule.logger.info("Adding: " + cs.getIpAddr());
+				
 				Long deviceKey = IcnModule.deviceService.getDeviceKeyCounter()
 						.getAndIncrement();
 				Entity entity = new Entity(cs.getMacAddress(), null,
 						cs.getIpAddr(), IPv6Address.NONE, cs.getDpId(),
 						cs.getSwitchPort(), new Date());
-				IcnModule.deviceService.getDeviceMap().put(
+				
+					IcnModule.logger.info("Adding: " + cs.getIpAddr());
+					IcnModule.deviceService.getDeviceMap().put(
 						deviceKey,
 						new Device((DeviceManagerImpl) IcnModule.deviceService,
 								deviceKey, entity,
 								new DefaultEntityClassifier()
 										.classifyEntity(entity)));
-				activeCS.add(cs.getDpId());
+					
+					activeCS.add(cs.getDpId());
+				
+				
 				for (IDevice device : IcnModule.deviceService.getAllDevices())
 					IcnModule.logger.info("Device: " + device.toString());
 		}

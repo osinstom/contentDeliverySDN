@@ -173,6 +173,8 @@ public class IcnEngine extends IcnForwarding {
 		for (Location potential : potentials) {
 
 			dstDev = Utils.getDevice(potential.getIpAddr());
+			
+			IcnModule.logger.info("DST & SRC: " + dstDev + " " + srcDev);
 
 			List<Route> rs = IcnModule.mpathRoutingService.getAllRoutes(
 					srcDev.getAttachmentPoints()[0].getSwitchDPID(),
@@ -182,6 +184,7 @@ public class IcnEngine extends IcnForwarding {
 					IcnConfiguration.getInstance().getMaxShortestRoutes(),
 					IcnConfiguration.getInstance().getRouteLengthDelta());
 
+			IcnModule.logger.info("here 1");
 			if (rs.size() != 0)
 				locAndRoutes.put(potential, rs);
 
@@ -210,6 +213,7 @@ public class IcnEngine extends IcnForwarding {
 			
 			}
 		}
+		IcnModule.logger.info("here 2");
 		
 		KeyValuePair<ContentDesc.Location, Route> bestSource = getBestSource(bestSources);
 
@@ -227,6 +231,7 @@ public class IcnEngine extends IcnForwarding {
 			prepareRoute(bestSource.getValue(), srcDev,
 					Utils.getDevice(bestSource.getKey().getIpAddr()),
 					TransportPort.of(flowId));
+			IcnModule.logger.info("here 3");
 		}
 
 		return bestSource.getKey();

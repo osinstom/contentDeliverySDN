@@ -21,6 +21,7 @@ public class SwitchListener implements IOFSwitchListener {
 
 	private IOFSwitchService switchService;
 	private List<DatapathId> activeCS;
+	public static List<Device> devices = new ArrayList<Device>();
 
 	public SwitchListener(IOFSwitchService switchService) {
 		this.switchService = switchService;
@@ -64,13 +65,16 @@ public class SwitchListener implements IOFSwitchListener {
 						cs.getSwitchPort(), new Date());
 				
 					IcnModule.logger.info("Adding: " + cs.getIpAddr());
-					IcnModule.deviceService.getDeviceMap().put(
-						deviceKey,
-						new Device((DeviceManagerImpl) IcnModule.deviceService,
+//					IcnModule.deviceService.getDeviceMap().put(
+//						deviceKey,
+//						new Device((DeviceManagerImpl) IcnModule.deviceService,
+//								deviceKey, entity,
+//								new DefaultEntityClassifier()
+//										.classifyEntity(entity)));
+					devices.add(new Device((DeviceManagerImpl) IcnModule.deviceService,
 								deviceKey, entity,
 								new DefaultEntityClassifier()
 										.classifyEntity(entity)));
-					
 					activeCS.add(cs.getDpId());
 				
 				

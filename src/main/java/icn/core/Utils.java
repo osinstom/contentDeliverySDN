@@ -91,7 +91,7 @@ public class Utils {
 	public static ContentDesc getContentDesc(String contentId) {
 
 		String bandwidth = null;
-		
+
 		List<Location> locations = new ArrayList<ContentDesc.Location>();
 
 		try {
@@ -113,8 +113,8 @@ public class Utils {
 
 					if (element.getAttribute("id").equals(contentId)) {
 
-						bandwidth = element.getElementsByTagName("bandwidth").item(0)
-								.getTextContent();
+						bandwidth = element.getElementsByTagName("bandwidth")
+								.item(0).getTextContent();
 
 						NodeList locationNodes = element
 								.getElementsByTagName("location");
@@ -123,18 +123,17 @@ public class Utils {
 							Node locationNode = locationNodes.item(tmp);
 							if (locationNode.getNodeType() == Node.ELEMENT_NODE) {
 								Element elmnt = (Element) locationNode;
-								String ipAddr = elmnt
-										.getAttribute("address");
-								String path = elmnt
-										.getAttribute("localPath");
-								boolean isLoaded = Boolean.parseBoolean(elmnt.getAttribute("loaded"));
-								
+								String ipAddr = elmnt.getAttribute("address");
+								String path = elmnt.getAttribute("localPath");
+								boolean isLoaded = Boolean.parseBoolean(elmnt
+										.getAttribute("loaded"));
+
 								locations.add(new ContentDesc.Location(ipAddr,
 										path, isLoaded));
 							}
 
 						}
-						
+
 						return new ContentDesc(contentId, locations, bandwidth);
 					}
 				}
@@ -173,65 +172,83 @@ public class Utils {
 	}
 
 	public static List<NodePortTuple> reverse(List<NodePortTuple> list) {
-		
+
 		List<NodePortTuple> reversed = new ArrayList<NodePortTuple>();
-		for(NodePortTuple npt : list) {
+		for (NodePortTuple npt : list) {
 			reversed.add(0, npt);
 		}
-		
+
 		return reversed;
 	}
-	
+
 	public static String routeToString(Route r) {
-		
+
 		List<NodePortTuple> path = r.getPath();
 		List<DatapathId> switches = new ArrayList<DatapathId>();
-		for(NodePortTuple npt : path) {
-			if(!switches.contains(npt.getNodeId()))
+		for (NodePortTuple npt : path) {
+			if (!switches.contains(npt.getNodeId()))
 				switches.add(npt.getNodeId());
 		}
-		
+
 		StringBuilder sb = new StringBuilder();
 		sb.append("Route via: ");
-		for(DatapathId dpid : switches)
-			sb.append("[" + IcnConfiguration.getInstance().getSwitchFromDpid(dpid.toString()) + "] ");
-		
-		
+		for (DatapathId dpid : switches)
+			sb.append("["
+					+ IcnConfiguration.getInstance().getSwitchFromDpid(
+							dpid.toString()) + "] ");
+
 		return sb.toString();
 	}
-	
-	public static IDevice getDevice(String ip) {
-		
-		for (IDevice device : IcnModule.deviceService.getAllDevices()) {
-//			IcnModule.logger
-//					.info("Device MAC: " + device.getMACAddressString());
-//			IcnModule.logger.info("Device: \n" + device.toString());
-			if (device.getIPv4Addresses().length != 0
-					&& device.getIPv4Addresses()[0] != null) {
-				if (device.getIPv4Addresses()[0].equals(IPv4Address.of(ip)))
-					return device;
+
+	public static enum DeviceType {
+		SRC, DST
+	}
+
+	public static IDevice getDevice(String ip, DeviceType type) {
+
+		if (type.equals(DeviceType.SRC)) {
+			for (IDevice device : IcnModule.deviceService.getAllDevices()) {
+				// IcnModule.logger
+				// .info("Device MAC: " + device.getMACAddressString());
+				// IcnModule.logger.info("Device: \n" + device.toString());
+				if (device.getIPv4Addresses().length != 0
+						&& device.getIPv4Addresses()[0] != null) {
+					if (device.getIPv4Addresses()[0].equals(IPv4Address.of(ip)))
+						return device;
+				}
+			}
+		} else if(type.equals(DeviceType.DST)) {
+			for (IDevice device : SwitchListener.devices) {
+				// IcnModule.logger
+				// .info("Device MAC: " + device.getMACAddressString());
+				// IcnModule.logger.info("Device: \n" + device.toString());
+				if (device.getIPv4Addresses().length != 0
+						&& device.getIPv4Addresses()[0] != null) {
+					if (device.getIPv4Addresses()[0].equals(IPv4Address.of(ip)))
+						return device;
+				}
 			}
 		}
-		
+
 		return null;
-		
-		
+
 	}
 
 	public static String routeToString(List<NodePortTuple> path) {
-		
+
 		List<DatapathId> switches = new ArrayList<DatapathId>();
-		for(NodePortTuple npt : path) {
-			if(!switches.contains(npt.getNodeId()))
+		for (NodePortTuple npt : path) {
+			if (!switches.contains(npt.getNodeId()))
 				switches.add(npt.getNodeId());
 		}
-		
+
 		StringBuilder sb = new StringBuilder();
 		sb.append("Route via: ");
-		for(DatapathId dpid : switches)
-			sb.append("[" + IcnConfiguration.getInstance().getSwitchFromDpid(dpid.toString()) + "] ");
-		
-		
+		for (DatapathId dpid : switches)
+			sb.append("["
+					+ IcnConfiguration.getInstance().getSwitchFromDpid(
+							dpid.toString()) + "] ");
+
 		return sb.toString();
 	}
 

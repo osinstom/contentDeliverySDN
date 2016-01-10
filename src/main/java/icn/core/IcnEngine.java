@@ -1,6 +1,7 @@
 package icn.core;
 
 import icn.core.ContentDesc.Location;
+import icn.core.Utils.DeviceType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -158,7 +159,7 @@ public class IcnEngine extends IcnForwarding {
 			String srcIp, int minBandwidth, int flowId)
 			throws NoNetworkResourcesException {
 
-		IDevice srcDev = Utils.getDevice(srcIp);
+		IDevice srcDev = Utils.getDevice(srcIp, Utils.DeviceType.SRC);
 		IDevice dstDev = null;
 		List<KeyValuePair<Location, Route>> bestSources = new ArrayList<IcnEngine.KeyValuePair<Location,Route>>();
 
@@ -172,7 +173,7 @@ public class IcnEngine extends IcnForwarding {
 		Map<Location, List<Route>> locAndRoutes = new HashMap<ContentDesc.Location, List<Route>>();
 		for (Location potential : potentials) {
 
-			dstDev = Utils.getDevice(potential.getIpAddr());
+			dstDev = Utils.getDevice(potential.getIpAddr(), Utils.DeviceType.DST);
 			
 			IcnModule.logger.info("DST & SRC: " + dstDev + " " + srcDev);
 
@@ -229,7 +230,7 @@ public class IcnEngine extends IcnForwarding {
 				Monitoring.flows.put(srcIp, cFlows);
 			}
 			prepareRoute(bestSource.getValue(), srcDev,
-					Utils.getDevice(bestSource.getKey().getIpAddr()),
+					Utils.getDevice(bestSource.getKey().getIpAddr(), DeviceType.DST),
 					TransportPort.of(flowId));
 			IcnModule.logger.info("here 3");
 		}

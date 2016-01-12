@@ -235,15 +235,15 @@ public class OFUtils {
 		StringBuilder builder = new StringBuilder();
 		builder.append("HTTP/1.1 302 Found\r\n");
 		builder.append("Location: http://" + dstUrl + "\r\n");
-		builder.append("Connection: close\r\n");
-
+		builder.append("Connection: keep-alive\r\n");
+		
 		builder.append("\r\n");
 		String httpHeader = builder.toString();
 		Data l7 = new Data();
 		l7.setData(httpHeader.getBytes());
 
-		byte[] tcpAck = generateTCPResponse(eth, ipv4, tcp, ACK_FLAG, null);
-		sendPacketOut(sw, inPort, tcpAck);
+//		byte[] tcpAck = generateTCPResponse(eth, ipv4, tcp, ACK_FLAG, null);
+//		sendPacketOut(sw, inPort, tcpAck);
 
 		byte[] httpRedirect = generateTCPResponse(eth, ipv4, tcp, PSH_ACK_FLAG,
 				l7);

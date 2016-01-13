@@ -30,10 +30,12 @@ import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.EthType;
+import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IpProtocol;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.TransportPort;
 import org.projectfloodlight.openflow.types.U64;
+import org.python.modules.sre.SRE_REPEAT;
 
 public class IcnEngine extends IcnForwarding {
 
@@ -174,8 +176,9 @@ public class IcnEngine extends IcnForwarding {
 		for (Location potential : potentials) {
 
 			dstDev = Utils.getDevice(potential.getIpAddr(), Utils.DeviceType.DST);
-			
+			IPv4Address[] iPv4Addresses = srcDev.getIPv4Addresses();
 			IcnModule.logger.info("DST & SRC: " + dstDev + " " + srcDev);
+			
 
 			List<Route> rs = IcnModule.mpathRoutingService.getAllRoutes(
 					srcDev.getAttachmentPoints()[0].getSwitchDPID(),

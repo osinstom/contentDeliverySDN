@@ -22,13 +22,12 @@ import org.projectfloodlight.openflow.types.IPv6Address;
 public class SwitchListener implements IOFSwitchListener {
 
 	private IOFSwitchService switchService;
-	private List<DatapathId> activeCS;
 	
 	public static Map<String, Device> devices = new ConcurrentHashMap<String, Device>();
 	
 	public SwitchListener(IOFSwitchService switchService) {
 		this.switchService = switchService;
-		activeCS = new ArrayList<DatapathId>();
+		
 		addContentServers();
 	}
 
@@ -67,49 +66,16 @@ public class SwitchListener implements IOFSwitchListener {
 						cs.getIpAddr(), IPv6Address.NONE, cs.getDpId(),
 						cs.getSwitchPort(), new Date());
 				
-					IcnModule.logger.info("Adding: " + cs.getIpAddr());
-//					IcnModule.deviceService.getDeviceMap().put(
-//						deviceKey,
-//						new Device((DeviceManagerImpl) IcnModule.deviceService,
-//								deviceKey, entity,
-//								new DefaultEntityClassifier()
-//										.classifyEntity(entity)));
 					Device dev = new Device((DeviceManagerImpl) IcnModule.deviceService,
 								deviceKey, entity,
 								new DefaultEntityClassifier()
 										.classifyEntity(entity));
+					IcnModule.logger.info("Adding: " + dev);
 					devices.put(dev.getIPv4Addresses()[0].toString(), dev);
-					activeCS.add(cs.getDpId());
-				
-				
-				for (IDevice device : IcnModule.deviceService.getAllDevices())
-					IcnModule.logger.info("Device: " + device.toString());
+					
 		}
 	}
 	
-	public void discoverContentServer(DatapathId switchId) {
-		List<ContentServer> contentServers = Utils.getContentServersInfo();
-
-		for (ContentServer cs : contentServers) {
-
-			if (cs.getDpId().equals(switchId)) {
-				IcnModule.logger.info("Adding: " + cs.getIpAddr());
-				Long deviceKey = IcnModule.deviceService.getDeviceKeyCounter()
-						.getAndIncrement();
-				Entity entity = new Entity(cs.getMacAddress(), null,
-						cs.getIpAddr(), IPv6Address.NONE, cs.getDpId(),
-						cs.getSwitchPort(), new Date());
-				IcnModule.deviceService.getDeviceMap().put(
-						deviceKey,
-						new Device((DeviceManagerImpl) IcnModule.deviceService,
-								deviceKey, entity,
-								new DefaultEntityClassifier()
-										.classifyEntity(entity)));
-				activeCS.add(cs.getDpId());
-				for (IDevice device : IcnModule.deviceService.getAllDevices())
-					IcnModule.logger.info("Device: " + device.toString());
-			}
-		}
-	}
+	
 
 }

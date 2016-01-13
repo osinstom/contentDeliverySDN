@@ -63,9 +63,9 @@ public class IcnEngine extends IcnForwarding {
 					contentSourceUrl = getContentSource(
 							Utils.getContentId(payload), srcIp, flowId);
 
-//					contentSourceUrl = contentSourceUrl.replace("$flowId$",
-//							Integer.toString(flowId));
-					contentSourceUrl = contentSourceUrl.replace(":$flowId$", "");
+					contentSourceUrl = contentSourceUrl.replace("$flowId$",
+							Integer.toString(flowId));
+					//contentSourceUrl = contentSourceUrl.replace(":$flowId$", "");
 					OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 							contentSourceUrl);
 				} catch (ContentNotFoundException e) {

@@ -40,7 +40,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public IOFSwitchService switchService = null;
 	public IRoutingService routingService = null;
 	public static ITopologyService topologyService = null;
-	public static IDeviceService deviceService = null;
+//	public static IDeviceService deviceService = null;
 	public static IMultiPathRoutingService mpathRoutingService = null;
 	private static ILinkDiscoveryService linkDiscoveryService = null;
 	public static IStatisticsService statisticsService = null;
@@ -79,7 +79,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		switchService = context.getServiceImpl(IOFSwitchService.class);
 		routingService = context.getServiceImpl(IRoutingService.class);
 		topologyService = context.getServiceImpl(ITopologyService.class);
-		deviceService = context.getServiceImpl(IDeviceService.class);
+		//deviceService = context.getServiceImpl(IDeviceService.class);
 		mpathRoutingService = context
 				.getServiceImpl(IMultiPathRoutingService.class);
 		linkDiscoveryService = context.getServiceImpl(ILinkDiscoveryService.class);
@@ -103,7 +103,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 		IcnEngine.getInstance().setTopologyService(this.topologyService);
 		IcnEngine.getInstance().setRoutingService(this.routingService);
-		IcnEngine.getInstance().setDeviceService(this.deviceService);
+		//IcnEngine.getInstance().setDeviceService(this.deviceService);
 		IcnEngine.getInstance().setSwitchService(this.switchService);
 		IcnEngine.getInstance().setMpathRoutingService(mpathRoutingService);
 		IcnEngine.getInstance().setLinkDiscoveryService(linkDiscoveryService);

@@ -4,20 +4,27 @@ import icn.core.ContentDesc.Location;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import net.floodlightcontroller.devicemanager.IDevice;
+import net.floodlightcontroller.devicemanager.IEntityClass;
+import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.routing.Route;
 import net.floodlightcontroller.topology.NodePortTuple;
 
+import org.jboss.netty.util.internal.ConcurrentHashMap;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.IPv4Address;
+import org.projectfloodlight.openflow.types.IPv6Address;
 import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.OFPort;
+import org.projectfloodlight.openflow.types.VlanVid;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -205,15 +212,6 @@ public class Utils {
 	}
 
 	public static IDevice getDevice(String ip, DeviceType type) {
-		
-			if(type.equals(DeviceType.SRC))
-			for(IDevice dev : IcnModule.deviceService.getAllDevices()) {
-				if(dev.getIPv4Addresses() != null) {
-					if(dev.getIPv4Addresses()[0].equals(IPv4Address.of(ip)))
-						return dev;
-				}
-			}
-			
 			return SwitchListener.devices.get(ip);
 	}
 
@@ -233,6 +231,18 @@ public class Utils {
 							dpid.toString()) + "] ");
 
 		return sb.toString();
+	}
+
+	public static Map<String, ContentServer> fromListToMap(
+			List<ContentServer> contentServersInfo) {
+		
+		Map<String, ContentServer> map = new ConcurrentHashMap<String, ContentServer>();
+		
+		for(ContentServer cs : contentServersInfo) {
+			map.put(cs.getIpAddr().toString(), cs);
+		}
+		
+		return map;
 	}
 
 }

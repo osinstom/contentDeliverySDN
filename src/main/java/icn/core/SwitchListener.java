@@ -23,12 +23,15 @@ public class SwitchListener implements IOFSwitchListener {
 
 	private IOFSwitchService switchService;
 	
-	public static Map<String, Device> devices = new ConcurrentHashMap<String, Device>();
+	public static Map<String, ContentServer> devices = new ConcurrentHashMap<String, ContentServer>();
+	
 	
 	public SwitchListener(IOFSwitchService switchService) {
 		this.switchService = switchService;
 		
-		addContentServers();
+		devices = Utils.fromListToMap(Utils.getContentServersInfo());
+		
+		//addContentServers();
 	}
 
 	@Override
@@ -58,22 +61,23 @@ public class SwitchListener implements IOFSwitchListener {
 	public void addContentServers() {
 		List<ContentServer> contentServers = Utils.getContentServersInfo();
 
-		for (ContentServer cs : contentServers) {
-				
-				Long deviceKey = IcnModule.deviceService.getDeviceKeyCounter()
-						.getAndIncrement();
-				Entity entity = new Entity(cs.getMacAddress(), null,
-						cs.getIpAddr(), IPv6Address.NONE, cs.getDpId(),
-						cs.getSwitchPort(), new Date());
-				
-					Device dev = new Device((DeviceManagerImpl) IcnModule.deviceService,
-								deviceKey, entity,
-								new DefaultEntityClassifier()
-										.classifyEntity(entity));
-					IcnModule.logger.info("Adding: " + dev);
-					devices.put(dev.getIPv4Addresses()[0].toString(), dev);
-					
-		}
+//		for (ContentServer cs : contentServers) {
+//				
+//				Long deviceKey = IcnModule.deviceService.getDeviceKeyCounter()
+//						.getAndIncrement();
+//				Entity entity = new Entity(cs.getMacAddress(), null,
+//						cs.getIpAddr(), IPv6Address.NONE, cs.getDpId(),
+//						cs.getSwitchPort(), new Date());
+//				
+//					Device dev = new Device((DeviceManagerImpl) IcnModule.deviceService,
+//								deviceKey, entity,
+//								new DefaultEntityClassifier()
+//										.classifyEntity(entity));
+//					IcnModule.logger.info("Adding: " + dev);
+//					devices.put(dev.getIPv4Addresses()[0].toString(), dev);
+//					
+//					
+//		}
 	}
 	
 	

@@ -3,6 +3,8 @@ package icn.core;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.floodlightcontroller.core.IOFSwitchListener;
 import net.floodlightcontroller.core.PortChangeType;
@@ -21,8 +23,9 @@ public class SwitchListener implements IOFSwitchListener {
 
 	private IOFSwitchService switchService;
 	private List<DatapathId> activeCS;
-	public static List<Device> devices = new ArrayList<Device>();
-
+	
+	public static Map<String, Device> devices = new ConcurrentHashMap<String, Device>();
+	
 	public SwitchListener(IOFSwitchService switchService) {
 		this.switchService = switchService;
 		activeCS = new ArrayList<DatapathId>();
@@ -71,10 +74,11 @@ public class SwitchListener implements IOFSwitchListener {
 //								deviceKey, entity,
 //								new DefaultEntityClassifier()
 //										.classifyEntity(entity)));
-					devices.add(new Device((DeviceManagerImpl) IcnModule.deviceService,
+					Device dev = new Device((DeviceManagerImpl) IcnModule.deviceService,
 								deviceKey, entity,
 								new DefaultEntityClassifier()
-										.classifyEntity(entity)));
+										.classifyEntity(entity));
+					devices.put(dev.getIPv4Addresses()[0].toString(), dev);
 					activeCS.add(cs.getDpId());
 				
 				

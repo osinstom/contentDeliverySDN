@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 
+import jdk.nashorn.internal.runtime.regexp.joni.constants.OPCode;
 import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.IOFMessageListener;
@@ -133,7 +134,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		
 		if (eth.getEtherType().equals(EthType.ARP)) {
 			ARP arp = (ARP) eth.getPayload();
-			if (arp.getTargetProtocolAddress().equals(VIP))
+			if (arp.getOpCode().equals(ARP.OP_REQUEST))
 				OFUtils.pushARP(sw, eth, msg);
 		}
 

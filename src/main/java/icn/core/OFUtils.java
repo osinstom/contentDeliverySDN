@@ -26,6 +26,8 @@ import org.projectfloodlight.openflow.protocol.match.Match.Builder;
 import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.ArpOpcode;
 import org.projectfloodlight.openflow.types.EthType;
+import org.projectfloodlight.openflow.types.IPv4Address;
+import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.OFBufferId;
 import org.projectfloodlight.openflow.types.OFPort;
 
@@ -67,18 +69,34 @@ public class OFUtils {
 		IcnModule.logger.info("SRCMAC=" + eth.getSourceMACAddress());
 		
 		Ethernet l2 = (Ethernet) eth.clone();
-		l2.setSourceMACAddress(ofPort.getHwAddr());
-		l2.setDestinationMACAddress(eth.getSourceMACAddress());
+		
+		
 		l2.setEtherType(EthType.ARP);
+		
+		
 		ARP arp = (ARP) eth.getPayload();
 		ARP l2_5 = (ARP)arp.clone();
-		l2_5.setSenderHardwareAddress(ofPort.getHwAddr());
+		
+		if(arp.getTargetProtocolAddress().equals(IPv4Address.of(IcnConfiguration.getInstance().getVirtualIP()))) {
+			l2.setSourceMACAddress(ofPort.getHwAddr());
+			l2_5.setSenderHardwareAddress(ofPort.getHwAddr());
+		} else {
+			l2.setSourceMACAddress(MacAddress.of(IcnConfiguration.getInstance().getMacForIp(arp.getTargetProtocolAddress().toString())));
+			l2_5.setSenderHardwareAddress(MacAddress.of(IcnConfiguration.getInstance().getMacForIp(arp.getTargetProtocolAddress().toString())));
+		}
+		
+		l2.setDestinationMACAddress(eth.getSourceMACAddress());
+		
+		
 		l2_5.setTargetHardwareAddress(((ARP) eth.getPayload())
 				.getSenderHardwareAddress());
 		l2_5.setSenderProtocolAddress(((ARP) eth.getPayload())
 				.getTargetProtocolAddress());
 		l2_5.setTargetProtocolAddress(((ARP) eth.getPayload())
 				.getSenderProtocolAddress());
+		
+		
+		
 		l2_5.setProtocolType(((ARP) eth.getPayload()).getProtocolType());
 		l2_5.setHardwareAddressLength(((ARP) eth.getPayload())
 				.getHardwareAddressLength());

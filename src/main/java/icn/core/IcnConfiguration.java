@@ -109,5 +109,9 @@ public class IcnConfiguration {
 		return Integer.parseInt(props.getProperty("bandwidthRL"));
 	}
 	
+	public String getMacForIp(String ip) {
+		return props.getProperty(ip);
+	}
+	
 
 }

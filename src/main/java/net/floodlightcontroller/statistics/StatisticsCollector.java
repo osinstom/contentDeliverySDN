@@ -49,7 +49,7 @@ public class StatisticsCollector implements IFloodlightModule,
 	private static final Logger log = LoggerFactory
 			.getLogger(StatisticsCollector.class);
 
-	public static final int LINK_SPEED = 10000; // kb/s --> 10 Mb/s
+	public static final int LINK_SPEED = 100000; // kb/s --> 100 Mb/s
 
 	private static IOFSwitchService switchService;
 	private static IThreadPoolService threadPoolService;

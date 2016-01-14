@@ -110,6 +110,7 @@ public class IcnConfiguration {
 	}
 	
 	public String getMacForIp(String ip) {
+		IcnModule.logger.info("MAC="+props.getProperty(ip));
 		return props.getProperty(ip);
 	}
 	

@@ -100,9 +100,11 @@ public class IcnEngine extends IcnForwarding {
 			String contentFlowId = ipv4.getSourceAddress().toString();
 //			IcnModule.logger.info(Monitoring.getInstance()
 //					.getFlowIds(contentFlowId).toString());
-			IcnModule.logger.info("REDIRECTED !!!!!!!!!!!!!!!!! ");
+			
 			if (Monitoring.getInstance().getFlowIds(contentFlowId)
 					.contains(tcp.getDestinationPort().getPort())) {
+				IcnModule.logger.info("REDIRECTED !!!!!!!!!!!!!!!!! ");
+				IcnModule.logger.info(tcp.getSourcePort() + " " + tcp.getDestinationPort());
 				setNatFlow(sw, msg, ipv4.getSourceAddress(),
 						ipv4.getDestinationAddress(), tcp.getSourcePort(),
 						tcp.getDestinationPort());

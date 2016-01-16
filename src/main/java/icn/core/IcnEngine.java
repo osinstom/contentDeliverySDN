@@ -116,32 +116,32 @@ public class IcnEngine extends IcnForwarding {
 
 	private Integer getFlowId(String contentFlowId) {
 		
-//		int start = 49152;
-//		int stop = 65535;
-//		
-//		if(actual >= stop)
-//			actual = start;
-//		
-//		for(int i=actual; i<stop; i++) {
-//			if(!Monitoring.getInstance().getFlowIds(contentFlowId)
-//					.contains(i)) {
-//				actual = i;
-//				break;
-//			}
-//		}
-//		
-//		return actual;
+		int start = 49152;
+		int stop = 65535;
+		
+		if(actual >= stop)
+			actual = start;
+		
+		for(int i=actual; i<stop; i++) {
+			if(!Monitoring.getInstance().getFlowIds(contentFlowId)
+					.contains(i)) {
+				actual = i;
+				break;
+			}
+		}
+		
+		return actual;
 
-		int flowId = 0;
-		do {
-			Random rn = new Random();
-			int range = 65535 - 49152 + 1;
-			flowId = rn.nextInt(range) + 49152;
-
-		} while (flowId == 0
-				|| Monitoring.getInstance().getFlowIds(contentFlowId)
-						.contains(flowId));
-		return flowId;
+//		int flowId = 0;
+//		do {
+//			Random rn = new Random();
+//			int range = 65535 - 49152 + 1;
+//			flowId = rn.nextInt(range) + 49152;
+//
+//		} while (flowId == 0
+//				|| Monitoring.getInstance().getFlowIds(contentFlowId)
+//						.contains(flowId));
+//		return flowId;
 	}
 
 	private String getContentSource(String contentId, String srcIp, int flowId)

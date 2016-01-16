@@ -74,6 +74,7 @@ public class IcnEngine extends IcnForwarding {
 					OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
 							OFUtils.HTTP_NOTFOUND);
 				} catch (NoNetworkResourcesException e) {
+					IcnModule.logger.info("503 SERVICE UNAVAILABLE!!!");
 					OFUtils.returnHttpResponse(sw, msg, ipv4, eth, tcp,
 							OFUtils.HTTP_SERVICE_UNAVAILABLE);
 				}

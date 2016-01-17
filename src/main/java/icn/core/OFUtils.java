@@ -255,7 +255,7 @@ public class OFUtils {
 		//builder.append("HTTP/1.1 302 Found\r\n");
 		//builder.append("Location: http://" + dstUrl + "\r\n");
 		//builder.append("Connection: keep-alive\r\n");
-		builder.append("Connection: close\r\n");
+		//builder.append("Connection: close\r\n");
 		builder.append("\r\n");
 		String httpHeader = builder.toString();
 		Data l7 = new Data();

@@ -11,14 +11,18 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import net.floodlightcontroller.core.FloodlightContext;
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.util.AppCookie;
 import net.floodlightcontroller.devicemanager.IDevice;
+import net.floodlightcontroller.forwarding.Forwarding;
 import net.floodlightcontroller.packet.Data;
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.TCP;
+import net.floodlightcontroller.routing.IRoutingDecision;
 import net.floodlightcontroller.routing.Route;
+import net.floodlightcontroller.routing.RoutingDecision;
 import net.floodlightcontroller.topology.NodePortTuple;
 
 import org.projectfloodlight.openflow.protocol.OFFactories;
@@ -50,7 +54,7 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	public void handleTcp(IOFSwitch sw, OFMessage msg, Ethernet eth, IPv4 ipv4,
-			TCP tcp) {
+			TCP tcp, FloodlightContext cntx) {
 
 		String payload = new String(((Data) tcp.getPayload()).serialize());
 		String srcIp = ipv4.getSourceAddress().toString(); // ContentRequest
@@ -67,7 +71,8 @@ public class IcnEngine extends IcnForwarding {
 
 					contentSourceUrl = contentSourceUrl.replace("$flowId$",
 							Integer.toString(flowId));
-					//contentSourceUrl = contentSourceUrl.replace(":$flowId$", "");
+					// contentSourceUrl = contentSourceUrl.replace(":$flowId$",
+					// "");
 					OFUtils.redirectHttpRequest(sw, msg, ipv4, eth, tcp, srcIp,
 							contentSourceUrl);
 				} catch (ContentNotFoundException e) {
@@ -99,16 +104,27 @@ public class IcnEngine extends IcnForwarding {
 		} else {
 
 			String contentFlowId = ipv4.getSourceAddress().toString();
-//			IcnModule.logger.info(Monitoring.getInstance()
-//					.getFlowIds(contentFlowId).toString());
-			
+			// IcnModule.logger.info(Monitoring.getInstance()
+			// .getFlowIds(contentFlowId).toString());
+
 			if (Monitoring.getInstance().getFlowIds(contentFlowId)
 					.contains(tcp.getDestinationPort().getPort())) {
 				IcnModule.logger.info("REDIRECTED !!!!!!!!!!!!!!!!! ");
-				IcnModule.logger.info(tcp.getSourcePort() + " " + tcp.getDestinationPort());
+				IcnModule.logger.info(tcp.getSourcePort() + " "
+						+ tcp.getDestinationPort());
 				setNatFlow(sw, msg, ipv4.getSourceAddress(),
 						ipv4.getDestinationAddress(), tcp.getSourcePort(),
 						tcp.getDestinationPort());
+			}
+
+			if (ipv4.getDestinationAddress().equals(IPv4Address.of(80))) {
+				Forwarding forw = new Forwarding();
+				IRoutingDecision decision = null;
+				OFPacketIn pi = (OFPacketIn) msg;
+				if (cntx != null) {
+					decision = RoutingDecision.rtStore.get(cntx, IRoutingDecision.CONTEXT_DECISION);
+				}
+				forw.processPacketInMessage(sw, pi, decision, cntx);
 			}
 
 		}
@@ -116,33 +132,32 @@ public class IcnEngine extends IcnForwarding {
 	}
 
 	private Integer getFlowId(String contentFlowId) {
-		
+
 		int start = 49152;
 		int stop = 65535;
-		
-		if(actual >= stop)
+
+		if (actual >= stop)
 			actual = start;
-		
-		for(int i=actual; i<stop; i++) {
-			if(!Monitoring.getInstance().getFlowIds(contentFlowId)
-					.contains(i)) {
+
+		for (int i = actual; i < stop; i++) {
+			if (!Monitoring.getInstance().getFlowIds(contentFlowId).contains(i)) {
 				actual = i;
 				break;
 			}
 		}
-		
+
 		return actual;
 
-//		int flowId = 0;
-//		do {
-//			Random rn = new Random();
-//			int range = 65535 - 49152 + 1;
-//			flowId = rn.nextInt(range) + 49152;
-//
-//		} while (flowId == 0
-//				|| Monitoring.getInstance().getFlowIds(contentFlowId)
-//						.contains(flowId));
-//		return flowId;
+		// int flowId = 0;
+		// do {
+		// Random rn = new Random();
+		// int range = 65535 - 49152 + 1;
+		// flowId = rn.nextInt(range) + 49152;
+		//
+		// } while (flowId == 0
+		// || Monitoring.getInstance().getFlowIds(contentFlowId)
+		// .contains(flowId));
+		// return flowId;
 	}
 
 	private String getContentSource(String contentId, String srcIp, int flowId)
@@ -166,7 +181,7 @@ public class IcnEngine extends IcnForwarding {
 
 		IDevice srcDev = Utils.getDevice(srcIp, Utils.DeviceType.SRC);
 		IDevice dstDev = null;
-		List<KeyValuePair<Location, Route>> bestSources = new ArrayList<IcnEngine.KeyValuePair<Location,Route>>();
+		List<KeyValuePair<Location, Route>> bestSources = new ArrayList<IcnEngine.KeyValuePair<Location, Route>>();
 
 		List<Location> potentials = new ArrayList<ContentDesc.Location>();
 		for (Location location : locations) {
@@ -178,10 +193,10 @@ public class IcnEngine extends IcnForwarding {
 		Map<Location, List<Route>> locAndRoutes = new HashMap<ContentDesc.Location, List<Route>>();
 		for (Location potential : potentials) {
 
-			dstDev = Utils.getDevice(potential.getIpAddr(), Utils.DeviceType.DST);
-			
+			dstDev = Utils.getDevice(potential.getIpAddr(),
+					Utils.DeviceType.DST);
+
 			IcnModule.logger.info("DST & SRC: " + dstDev + " " + srcDev);
-			
 
 			List<Route> rs = IcnModule.mpathRoutingService.getAllRoutes(
 					srcDev.getAttachmentPoints()[0].getSwitchDPID(),
@@ -202,26 +217,31 @@ public class IcnEngine extends IcnForwarding {
 
 		double selectionCost = 0;
 
-		//IcnModule.logger.info("All possibilities: \n");
+		// IcnModule.logger.info("All possibilities: \n");
 		for (Entry<Location, List<Route>> entry : locAndRoutes.entrySet()) {
 			IcnModule.logger.info("To location: " + entry.getKey());
 			for (Route r : entry.getValue()) {
 				double tmpCost = calculateSelectionCost(r.getPath().size(),
 						r.getBottleneckBandwidth());
-				
+
 				if (tmpCost > selectionCost) {
 					bestSources.clear();
-					bestSources.add(new KeyValuePair<ContentDesc.Location, Route>(entry.getKey(), r));
+					bestSources
+							.add(new KeyValuePair<ContentDesc.Location, Route>(
+									entry.getKey(), r));
 					selectionCost = tmpCost;
-				} else if(tmpCost == selectionCost) {
-					bestSources.add(new KeyValuePair<ContentDesc.Location, Route>(entry.getKey(), r));
+				} else if (tmpCost == selectionCost) {
+					bestSources
+							.add(new KeyValuePair<ContentDesc.Location, Route>(
+									entry.getKey(), r));
 				}
-				IcnModule.logger.info("Route: Cost="+ tmpCost + ", via: " + Utils.routeToString(r));
-			
+				IcnModule.logger.info("Route: Cost=" + tmpCost + ", via: "
+						+ Utils.routeToString(r));
+
 			}
 		}
 		IcnModule.logger.info("here 2");
-		
+
 		KeyValuePair<ContentDesc.Location, Route> bestSource = getBestSource(bestSources);
 
 		IcnModule.logger.info("Best source=" + bestSource.getKey());
@@ -235,8 +255,8 @@ public class IcnEngine extends IcnForwarding {
 				cFlows.add(new ContentFlow(flowId));
 				Monitoring.flows.put(srcIp, cFlows);
 			}
-			prepareRoute(bestSource.getValue(), srcDev,
-					Utils.getDevice(bestSource.getKey().getIpAddr(), DeviceType.DST),
+			prepareRoute(bestSource.getValue(), srcDev, Utils.getDevice(
+					bestSource.getKey().getIpAddr(), DeviceType.DST),
 					TransportPort.of(flowId));
 			IcnModule.logger.info("here 3");
 		}
@@ -247,9 +267,9 @@ public class IcnEngine extends IcnForwarding {
 
 	private KeyValuePair<Location, Route> getBestSource(
 			List<KeyValuePair<Location, Route>> bestSources) {
-		
+
 		Random rand = new Random();
-    	return bestSources.get(rand.nextInt(bestSources.size()));
+		return bestSources.get(rand.nextInt(bestSources.size()));
 
 	}
 
@@ -258,21 +278,20 @@ public class IcnEngine extends IcnForwarding {
 		hops = hops / 2;
 
 		double x = IcnConfiguration.getInstance()
-				.getPathLenghtReservationLevel() - IcnConfiguration
-				.getInstance().getPathLengthAspirationLevel();
+				.getPathLenghtReservationLevel()
+				- IcnConfiguration.getInstance().getPathLengthAspirationLevel();
 		double cost1 = (IcnConfiguration.getInstance()
-				.getPathLenghtReservationLevel() - hops)
-				/ x;
-		
-		double y = IcnConfiguration.getInstance()
-				.getBandwidthReservationLevel() - IcnConfiguration
-				.getInstance().getBandwidthAspirationLevel();
-		double cost2 = (IcnConfiguration.getInstance().getBandwidthReservationLevel() - bottleneckBandwidth)
-				/ y;
+				.getPathLenghtReservationLevel() - hops) / x;
 
-		if(cost2==0)
+		double y = IcnConfiguration.getInstance()
+				.getBandwidthReservationLevel()
+				- IcnConfiguration.getInstance().getBandwidthAspirationLevel();
+		double cost2 = (IcnConfiguration.getInstance()
+				.getBandwidthReservationLevel() - bottleneckBandwidth) / y;
+
+		if (cost2 == 0)
 			return cost1;
-		
+
 		return Math.min(cost1, cost2);
 	}
 

@@ -40,13 +40,14 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public IOFSwitchService switchService = null;
 	public IRoutingService routingService = null;
 	public static ITopologyService topologyService = null;
-//	public static IDeviceService deviceService = null;
+	// public static IDeviceService deviceService = null;
 	public static IMultiPathRoutingService mpathRoutingService = null;
 	private static ILinkDiscoveryService linkDiscoveryService = null;
 	public static IStatisticsService statisticsService = null;
 
-	protected final static IPv4Address VIP = IPv4Address.of(IcnConfiguration.getInstance().getVirtualIP());
-	
+	protected final static IPv4Address VIP = IPv4Address.of(IcnConfiguration
+			.getInstance().getVirtualIP());
+
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
 		return null;
@@ -54,7 +55,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 	@Override
 	public Map<Class<? extends IFloodlightService>, IFloodlightService> getServiceImpls() {
-		
+
 		return null;
 	}
 
@@ -79,15 +80,16 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		switchService = context.getServiceImpl(IOFSwitchService.class);
 		routingService = context.getServiceImpl(IRoutingService.class);
 		topologyService = context.getServiceImpl(ITopologyService.class);
-		//deviceService = context.getServiceImpl(IDeviceService.class);
+		// deviceService = context.getServiceImpl(IDeviceService.class);
 		mpathRoutingService = context
 				.getServiceImpl(IMultiPathRoutingService.class);
-		linkDiscoveryService = context.getServiceImpl(ILinkDiscoveryService.class);
+		linkDiscoveryService = context
+				.getServiceImpl(ILinkDiscoveryService.class);
 		statisticsService = context.getServiceImpl(IStatisticsService.class);
 		logger = LoggerFactory.getLogger(IcnModule.class);
-		
-		//Appender fh = new FileAppender(new SimpleLayout(), "MyLogFile.log");
-		
+
+		// Appender fh = new FileAppender(new SimpleLayout(), "MyLogFile.log");
+
 	}
 
 	@Override
@@ -97,13 +99,14 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 		Monitoring.getInstance().setSwitchService(switchService);
 		Monitoring.getInstance().setTopologyService(topologyService);
 		Monitoring.getInstance().setStatisticsService(statisticsService);
-		floodlightProvider.addOFMessageListener(OFType.FLOW_REMOVED, Monitoring.getInstance());
-		
+		floodlightProvider.addOFMessageListener(OFType.FLOW_REMOVED,
+				Monitoring.getInstance());
+
 		switchService.addOFSwitchListener(new SwitchListener(switchService));
 
 		IcnEngine.getInstance().setTopologyService(this.topologyService);
 		IcnEngine.getInstance().setRoutingService(this.routingService);
-		//IcnEngine.getInstance().setDeviceService(this.deviceService);
+		// IcnEngine.getInstance().setDeviceService(this.deviceService);
 		IcnEngine.getInstance().setSwitchService(this.switchService);
 		IcnEngine.getInstance().setMpathRoutingService(mpathRoutingService);
 		IcnEngine.getInstance().setLinkDiscoveryService(linkDiscoveryService);
@@ -127,10 +130,10 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	@Override
 	public net.floodlightcontroller.core.IListener.Command receive(
 			IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-		
+
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
 				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-		
+
 		if (eth.getEtherType().equals(EthType.ARP)) {
 			ARP arp = (ARP) eth.getPayload();
 			if (arp.getOpCode().equals(ARP.OP_REQUEST))
@@ -139,17 +142,19 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 
 		if (eth.getEtherType().equals(EthType.IPv4)) {
 			IPv4 ipv4 = (IPv4) eth.getPayload();
-			
+
+			if (ipv4.getDestinationAddress().equals(IPv4Address.of(80))) {
+				
+			}
+
 			if (ipv4.getProtocol().equals(IpProtocol.TCP)) {
 
 				TCP tcp = (TCP) ipv4.getPayload();
-				IcnEngine.getInstance().handleTcp(sw, msg, eth, ipv4, tcp);
+				IcnEngine.getInstance().handleTcp(sw, msg, eth, ipv4, tcp, cntx);
 			}
 		}
 
 		return Command.CONTINUE;
 	}
-
-
 
 }

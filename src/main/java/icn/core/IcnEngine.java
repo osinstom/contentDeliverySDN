@@ -117,14 +117,10 @@ public class IcnEngine extends IcnForwarding {
 						tcp.getDestinationPort());
 			}
 
-			if (ipv4.getDestinationAddress().equals(IPv4Address.of(80))) {
+			if (tcp.getDestinationPort().equals(TransportPort.of(80))) {
 				IcnModule.logger.info("Forwarding DASH...");
 				Forwarding forw = new Forwarding();
-				IRoutingDecision decision = null;
 				OFPacketIn pi = (OFPacketIn) msg;
-				if (cntx != null) {
-					decision = RoutingDecision.rtStore.get(cntx, IRoutingDecision.CONTEXT_DECISION);
-				}
 				forw.doForwardFlow(sw, pi, cntx, false);
 			}
 

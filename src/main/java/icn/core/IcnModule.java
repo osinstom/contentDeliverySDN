@@ -38,7 +38,7 @@ public class IcnModule implements IOFMessageListener, IFloodlightModule {
 	public static Logger logger;
 
 	public IOFSwitchService switchService = null;
-	public IRoutingService routingService = null;
+	public static IRoutingService routingService = null;
 	public static ITopologyService topologyService = null;
 	// public static IDeviceService deviceService = null;
 	public static IMultiPathRoutingService mpathRoutingService = null;

@@ -120,6 +120,8 @@ public class IcnEngine extends IcnForwarding {
 			if (tcp.getDestinationPort().equals(TransportPort.of(80))) {
 				IcnModule.logger.info("Forwarding DASH...");
 				Forwarding forw = new Forwarding();
+				forw.setRoutingEngineService(routingService);
+				forw.setSwitchService(switchService);
 				OFPacketIn pi = (OFPacketIn) msg;
 				forw.doForwardFlow(sw, pi, cntx, false, SwitchListener.devices
 						.get(ipv4.getSourceAddress().toString()),

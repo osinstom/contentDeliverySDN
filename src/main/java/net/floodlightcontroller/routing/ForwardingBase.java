@@ -93,9 +93,9 @@ public abstract class ForwardingBase implements IOFMessageListener {
 	protected static boolean FLOOD_ALL_ARP_PACKETS = false;
 
 	protected IFloodlightProviderService floodlightProviderService;
-	protected IOFSwitchService switchService;
+	private IOFSwitchService switchService;
 	protected IDeviceService deviceManagerService;
-	protected IRoutingService routingEngineService;
+	private IRoutingService routingEngineService;
 	protected ITopologyService topologyService;
 	protected IDebugCounterService debugCounterService;
 
@@ -196,7 +196,7 @@ public abstract class ForwardingBase implements IOFMessageListener {
 		for (int indx = switchPortList.size() - 1; indx > 0; indx -= 2) {
 			// indx and indx-1 will always have the same switch DPID.
 			DatapathId switchDPID = switchPortList.get(indx).getNodeId();
-			IOFSwitch sw = switchService.getSwitch(switchDPID);
+			IOFSwitch sw = getSwitchService().getSwitch(switchDPID);
 
 			if (sw == null) {
 				if (log.isWarnEnabled()) {
@@ -254,6 +254,9 @@ public abstract class ForwardingBase implements IOFMessageListener {
 			.setOutPort(outPort)
 			.setPriority(FLOWMOD_DEFAULT_PRIORITY);
 
+			messageDamper = new OFMessageDamper(OFMESSAGE_DAMPER_CAPACITY,
+					EnumSet.of(OFType.FLOW_MOD),
+					OFMESSAGE_DAMPER_TIMEOUT);
 			try {
 				if (log.isTraceEnabled()) {
 					log.trace("Pushing Route flowmod routeIndx={} " +
@@ -368,7 +371,9 @@ public abstract class ForwardingBase implements IOFMessageListener {
 		pob.setInPort(inPort);
 
 		pob.setData(packetData);
-
+		messageDamper = new OFMessageDamper(OFMESSAGE_DAMPER_CAPACITY,
+				EnumSet.of(OFType.FLOW_MOD),
+				OFMESSAGE_DAMPER_TIMEOUT);
 		try {
 			if (log.isTraceEnabled()) {
 				log.trace("write broadcast packet on switch-id={} " +
@@ -452,5 +457,21 @@ public abstract class ForwardingBase implements IOFMessageListener {
 	@Override
 	public boolean isCallbackOrderingPostreq(OFType type, String name) {
 		return false;
+	}
+
+	public IRoutingService getRoutingEngineService() {
+		return routingEngineService;
+	}
+
+	public void setRoutingEngineService(IRoutingService routingEngineService) {
+		this.routingEngineService = routingEngineService;
+	}
+
+	public IOFSwitchService getSwitchService() {
+		return switchService;
+	}
+
+	public void setSwitchService(IOFSwitchService switchService) {
+		this.switchService = switchService;
 	}
 }

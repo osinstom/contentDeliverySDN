@@ -180,8 +180,8 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
 				return;
 			}
 	
-			SwitchPort[] dstDaps = dstDevice.getAttachmentPoints();
-			SwitchPort dstDap = null;
+			//SwitchPort[] dstDaps = dstDevice.getAttachmentPoints();
+			SwitchPort dstDap = dstDevice.getAttachmentPoints()[0];
 
 			/* 
 			 * Search for the true attachment point. The true AP is
@@ -193,12 +193,12 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
 			 * attached between islands (possibly on a non-OF switch
 			 * in between two OpenFlow switches).
 			 */
-			for (SwitchPort ap : dstDaps) {
-				if (topologyService.isEdge(ap.getSwitchDPID(), ap.getPort())) {
-					dstDap = ap;
-					break;
-				}
-			}	
+//			for (SwitchPort ap : dstDaps) {
+////				if (topologyService.isEdge(ap.getSwitchDPID(), ap.getPort())) {
+//					dstDap = ap;
+//					break;
+//				//}
+//			}	
 
 			/* 
 			 * This should only happen (perhaps) when the controller is
@@ -213,14 +213,14 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
 				return; 
 			}
 			
-			/* It's possible that we learned packed destination while it was in flight */
-			if (!topologyService.isEdge(source, inPort)) {	
-				log.debug("Packet destination is known, but packet was not received on an edge port (rx on {}/{}). Flooding packet", source, inPort);
-				doFlood(sw, pi, cntx);
-				return; 
-			}				
+//			/* It's possible that we learned packed destination while it was in flight */
+//			if (!topologyService.isEdge(source, inPort)) {	
+//				log.debug("Packet destination is known, but packet was not received on an edge port (rx on {}/{}). Flooding packet", source, inPort);
+//				doFlood(sw, pi, cntx);
+//				return; 
+//			}				
 			
-			Route route = routingEngineService.getRoute(source, 
+			Route route = getRoutingEngineService().getRoute(source, 
 					inPort,
 					dstDap.getSwitchDPID(),
 					dstDap.getPort(), U64.of(0)); //cookie = 0, i.e., default route
@@ -441,10 +441,10 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
 		super.init();
 		this.floodlightProviderService = context.getServiceImpl(IFloodlightProviderService.class);
 		this.deviceManagerService = context.getServiceImpl(IDeviceService.class);
-		this.routingEngineService = context.getServiceImpl(IRoutingService.class);
+		this.setRoutingEngineService(context.getServiceImpl(IRoutingService.class));
 		this.topologyService = context.getServiceImpl(ITopologyService.class);
 		this.debugCounterService = context.getServiceImpl(IDebugCounterService.class);
-		this.switchService = context.getServiceImpl(IOFSwitchService.class);
+		this.setSwitchService(context.getServiceImpl(IOFSwitchService.class));
 
 		Map<String, String> configParameters = context.getConfigParams(this);
 		String tmp = configParameters.get("hard-timeout");

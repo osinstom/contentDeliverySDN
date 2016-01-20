@@ -90,7 +90,7 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
 				return Command.CONTINUE;
 			case FORWARD_OR_FLOOD:
 			case FORWARD:
-				doForwardFlow(sw, pi, cntx, false);
+				//doForwardFlow(sw, pi, cntx, false);
 				return Command.CONTINUE;
 			case MULTICAST:
 				// treat as broadcast
@@ -111,7 +111,7 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
 			if (eth.isBroadcast() || eth.isMulticast()) {
 				doFlood(sw, pi, cntx);
 			} else {
-				doForwardFlow(sw, pi, cntx, false);
+				//doForwardFlow(sw, pi, cntx, false);
 			}
 		}
 
@@ -145,13 +145,13 @@ public class Forwarding extends ForwardingBase implements IFloodlightModule {
 		}
 	}
 
-	public void doForwardFlow(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx, boolean requestFlowRemovedNotifn) {
+	public void doForwardFlow(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx, boolean requestFlowRemovedNotifn, IDevice srcDevice, IDevice dstDevice) {
 		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
-		IDevice dstDevice = IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_DST_DEVICE);
+	
 		DatapathId source = sw.getId();
 				
 		if (dstDevice != null) {
-			IDevice srcDevice = IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE);
+			
 
 			if (srcDevice == null) {
 				log.error("No device entry found for source device. Is the device manager running? If so, report bug.");

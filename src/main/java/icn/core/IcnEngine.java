@@ -121,7 +121,10 @@ public class IcnEngine extends IcnForwarding {
 				IcnModule.logger.info("Forwarding DASH...");
 				Forwarding forw = new Forwarding();
 				OFPacketIn pi = (OFPacketIn) msg;
-				forw.doForwardFlow(sw, pi, cntx, false);
+				forw.doForwardFlow(sw, pi, cntx, false, SwitchListener.devices
+						.get(ipv4.getSourceAddress().toString()),
+						SwitchListener.devices.get(ipv4.getDestinationAddress()
+								.toString()));
 			}
 
 		}

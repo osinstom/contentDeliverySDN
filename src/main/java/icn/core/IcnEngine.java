@@ -115,9 +115,7 @@ public class IcnEngine extends IcnForwarding {
 				setNatFlow(sw, msg, ipv4.getSourceAddress(),
 						ipv4.getDestinationAddress(), tcp.getSourcePort(),
 						tcp.getDestinationPort());
-			}
-
-			if (tcp.getDestinationPort().equals(TransportPort.of(80))) {
+			} else {
 				IcnModule.logger.info("Forwarding DASH...");
 				Forwarding forw = new Forwarding();
 				forw.setRoutingEngineService(routingService);
@@ -127,7 +125,13 @@ public class IcnEngine extends IcnForwarding {
 						.get(ipv4.getSourceAddress().toString()),
 						SwitchListener.devices.get(ipv4.getDestinationAddress()
 								.toString()));
+				forw.doForwardFlow(sw, pi, cntx, false, SwitchListener.devices
+						.get(ipv4.getDestinationAddress().toString()),
+						SwitchListener.devices.get(ipv4.getDestinationAddress()
+								.toString()));
 			}
+
+			
 
 		}
 

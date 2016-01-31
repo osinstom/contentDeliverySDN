@@ -323,7 +323,7 @@ public class IcnEngine extends IcnForwarding {
 				.setExact(MatchField.IPV4_SRC, srcDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.IPV4_DST, dstDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.TCP_SRC, srcTcpPort)
-				.setExact(MatchField.TCP_DST, TransportPort.of(8080));
+				.setExact(MatchField.TCP_DST, TransportPort.of(80));
 
 		Match.Builder reverseMatch = OFFactories.getFactory(OFVersion.OF_13)
 				.buildMatch().setExact(MatchField.ETH_TYPE, EthType.IPv4)
@@ -331,7 +331,7 @@ public class IcnEngine extends IcnForwarding {
 				.setExact(MatchField.IPV4_SRC, dstDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.IPV4_DST, srcDevice.getIPv4Addresses()[0])
 				.setExact(MatchField.TCP_DST, srcTcpPort)
-				.setExact(MatchField.TCP_SRC, TransportPort.of(8080));
+				.setExact(MatchField.TCP_SRC, TransportPort.of(80));
 
 		flow.setFlowMatch(forwardMatch.build());
 

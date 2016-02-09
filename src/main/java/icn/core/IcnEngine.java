@@ -109,14 +109,14 @@ public class IcnEngine extends IcnForwarding {
 
 			if (Monitoring.getInstance().getFlowIds(contentFlowId)
 					.contains(tcp.getDestinationPort().getPort())) {
-				IcnModule.logger.info("REDIRECTED !!!!!!!!!!!!!!!!! ");
+				
 				IcnModule.logger.info(tcp.getSourcePort() + " "
 						+ tcp.getDestinationPort());
 				setNatFlow(sw, msg, ipv4.getSourceAddress(),
 						ipv4.getDestinationAddress(), tcp.getSourcePort(),
 						tcp.getDestinationPort());
 			} else {
-				IcnModule.logger.info("Forwarding DASH...");
+				
 				Forwarding forw = new Forwarding();
 				forw.setRoutingEngineService(routingService);
 				forw.setSwitchService(switchService);
